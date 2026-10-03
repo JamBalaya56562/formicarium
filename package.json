@@ -1,0 +1,24 @@
+{
+  "name": "formicarium",
+  "version": "0.0.0",
+  "private": true,
+  "description": "blink（x86-64 Linux ユーザーモードエミュレータ）を wasm 上で動かす PoC",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test:build": "node --test tests/node/build.test.mjs",
+    "test:runner": "node --test tests/node/runner.test.mjs",
+    "test:probe": "node --test tests/node/probe.test.mjs",
+    "test:aube": "node --test tests/node/aube-1645.test.mjs",
+    "test:measure": "node --test tests/node/measure.test.mjs",
+    "test:pitchfork": "node --test tests/node/pitchfork-basic.test.mjs",
+    "test:browser": "playwright test tests/browser/probe.spec.mjs tests/browser/aube-1645.spec.mjs tests/browser/pitchfork-basic.spec.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

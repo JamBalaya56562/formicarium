@@ -1,0 +1,2 @@
+FAIL futex-deadline: absolute deadline shortened: rc=-1 errno=110 elapsed=647.484672ms
+futex mismatch broadcasts=45 rc=-1 errno=110 elapsed_ms=647

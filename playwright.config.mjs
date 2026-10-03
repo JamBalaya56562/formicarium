@@ -1,0 +1,32 @@
+// Playwright の設定。scripts/serve.mjs（COOP/COEP 付きの開発用サーバー）を起動し、
+// Chromium・Firefox・WebKit の 3 つでブラウザのテストを実行する。
+// WebKit は Windows 上での Safari の代わり（実機の Safari は macOS で別途確認する）。
+import { defineConfig, devices } from '@playwright/test';
+
+const port = Number(process.env.FORMICARIUM_PORT ?? 8787);
+
+export default defineConfig({
+  testDir: 'tests/browser',
+  testMatch: '**/*.spec.mjs',
+  // blink のインタプリタは遅いので、1 件あたりの上限を長めに取る。
+  timeout: 15 * 60 * 1000,
+  expect: { timeout: 10 * 60 * 1000 },
+  // 計測と判定の再現性のため、ブラウザは 1 つずつ順に動かす。
+  workers: 1,
+  fullyParallel: false,
+  reporter: [['list']],
+  use: {
+    baseURL: `http://127.0.0.1:${port}`,
+  },
+  webServer: {
+    command: `node scripts/serve.mjs --port ${port}`,
+    url: `http://127.0.0.1:${port}/runtime/web/index.html`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 30 * 1000,
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
+});

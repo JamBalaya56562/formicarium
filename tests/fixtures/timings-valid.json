@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-04T00:00:00.000Z",
+  "tool": { "name": "aube", "version": "aube 2.6.1", "commit": "bd94e42f54d3b5e3dd102716b7197f316cb5f4ed" },
+  "core": { "name": "blink", "commit": "817687f0e8056b27c45e928055208900519a76b4", "emcc": "emcc 6.0.10" },
+  "host": { "os": "Windows_NT 10.0.26300 x64", "cpu": "example x8", "node": "24.21.0" },
+  "runs": [
+    {
+      "environment": { "kind": "browser", "name": "chromium", "version": "140.0", "os": "Windows_NT 10.0.26300 x64", "visibility": "visible (headless)" },
+      "trial": 1,
+      "trials": 2,
+      "milliseconds": { "version": 900, "install": 4000, "frozenInstall": 3000, "list": 800 },
+      "exitCodes": { "version": 0, "install": 0, "frozenInstall": 0, "list": 0 }
+    },
+    {
+      "environment": { "kind": "browser", "name": "chromium", "version": "140.0", "os": "Windows_NT 10.0.26300 x64", "visibility": "visible (headless)" },
+      "trial": 2,
+      "trials": 2,
+      "milliseconds": { "version": 1100, "install": 5000, "frozenInstall": 2000, "list": 600 },
+      "exitCodes": { "version": 0, "install": 0, "frozenInstall": 0, "list": 0 }
+    }
+  ],
+  "failures": []
+}

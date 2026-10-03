@@ -1,0 +1,2 @@
+PASS madvise-dontneed
+exit=0
