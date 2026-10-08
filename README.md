@@ -1,5 +1,8 @@
 # formicarium
 
+Contribution and community guidance: [CONTRIBUTING.md](CONTRIBUTING.md),
+[Code of Conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md).
+
 An open-source user-mode x86 Linux emulator for the browser, in the spirit
 of CheerpX: run unmodified Linux binaries in WebAssembly, without booting a
 kernel, so that CLI bug reproductions can run as-is in a web page.

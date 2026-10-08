@@ -1,0 +1,40 @@
+name: Bug report
+description: Report an observed problem with reproducible evidence
+title: "fix: "
+body:
+  - type: markdown
+    attributes:
+      value: "For security vulnerabilities, follow SECURITY.md instead of opening a public issue."
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed and expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps and input
+      description: Include exact commands, a minimal guest or session, and actual output.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit SHA
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js or browser version, blink commit, and build information.
+    validations:
+      required: true
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification
+      options:
+        - label: I reproduced this problem and included the observed evidence.
+          required: true
