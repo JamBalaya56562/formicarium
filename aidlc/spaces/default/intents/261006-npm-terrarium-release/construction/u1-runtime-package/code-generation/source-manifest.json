@@ -1,0 +1,82 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-runtime-package",
+  "version": 1,
+  "writes": [
+    {
+      "path": "package.json"
+    },
+    {
+      "path": "package-lock.json"
+    },
+    {
+      "path": ".gitignore"
+    },
+    {
+      "path": "eslint.config.mjs"
+    },
+    {
+      "path": "README.md"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "path": "scripts/build-guests.sh"
+    },
+    {
+      "path": "scripts/package/"
+    },
+    {
+      "path": "runtime/public.mjs"
+    },
+    {
+      "path": "runtime/errors.mjs"
+    },
+    {
+      "path": "runtime/validation.mjs"
+    },
+    {
+      "path": "runtime/state.mjs"
+    },
+    {
+      "path": "runtime/lifecycle.mjs"
+    },
+    {
+      "path": "runtime/protocol.mjs"
+    },
+    {
+      "path": "runtime/worker-execution.mjs"
+    },
+    {
+      "path": "runtime/core.mjs"
+    },
+    {
+      "path": "runtime/guest-io.mjs"
+    },
+    {
+      "path": "runtime/node/api.mjs"
+    },
+    {
+      "path": "runtime/node/package-worker.mjs"
+    },
+    {
+      "path": "runtime/web/api.mjs"
+    },
+    {
+      "path": "runtime/web/package-worker.mjs"
+    },
+    {
+      "path": "types/index.d.ts"
+    },
+    {
+      "path": "types/node.d.ts"
+    },
+    {
+      "path": "types/browser.d.ts"
+    },
+    {
+      "path": "tests/package/"
+    }
+  ]
+}

@@ -42,7 +42,7 @@ target=x86_64-unknown-linux-musl
 mkdir -p "$root/dist/guests"
 
 build_probe() {
-  echo "== probe・hello・exit3 をビルド（$image）"
+  echo "== probe・hello・exit3 をビルド（${image}）"
   container_run "$image" dist/guests "
     apk add --no-cache musl-dev >/dev/null
     cargo build --release --locked --target $target \
@@ -54,7 +54,7 @@ build_probe() {
 }
 
 build_aube() {
-  echo "== aube $aube_ref をビルド（$image）"
+  echo "== aube $aube_ref をビルド（${image}）"
   # aube の build script は、PATH に node があると npm の packument を取得して埋め込む。
   # コンテナには node がないので埋め込まれないが、念のため空の primer を明示して
   # どのマシンでも同じ内容になるようにする（terrarium の build-aube.sh と同じ扱い）。
@@ -75,7 +75,7 @@ build_aube() {
 }
 
 build_pitchfork() {
-  echo "== pitchfork $pitchfork_ref をビルド（$image、取得元 $pitchfork_repo）"
+  echo "== pitchfork $pitchfork_ref をビルド（${image}、取得元 ${pitchfork_repo}）"
   # キャッシュのクローンは取得元の URL も確かめてから使う（別の取得元のものを混ぜないため。NFR3）。
   # release ビルドは web UI（ui/dist）を埋め込むので、先に UI をビルドする（pitchfork の build.rs は
   # ui/dist/index.html がないと release で止まる）。UI のビルド手順は pitchfork の mise.toml の
@@ -93,7 +93,7 @@ build_pitchfork() {
     node_version=\$(node --version)
     case \$node_version in
       v$node_major.*) ;;
-      *) echo \"error: UI のビルドには node $node_major が必要です（apk が入れたのは \$node_version）\" >&2; exit 1 ;;
+      *) echo \"error: UI のビルドには node $node_major が必要です（apk が入れたのは \${node_version}）\" >&2; exit 1 ;;
     esac
     install -m 0755 /work/$aube_bin /usr/local/bin/aube
     src=/cache/pitchfork-src/$pitchfork_ref
@@ -150,7 +150,7 @@ check_static_elf() {
   phentsize=$(od -An -tu2 -j54 -N2 "$bin" | tr -d ' \n')
   phnum=$(od -An -tu2 -j56 -N2 "$bin" | tr -d ' \n')
   if [ "$phentsize" != 56 ] || [ "$phnum" -lt 1 ] || [ "$phnum" -gt 256 ]; then
-    echo "error: $bin のプログラムヘッダが不正です（e_phentsize=$phentsize e_phnum=$phnum）" >&2
+    echo "error: $bin のプログラムヘッダが不正です（e_phentsize=$phentsize e_phnum=${phnum}）" >&2
     return 1
   fi
   for ((i = 0; i < phnum; i++)); do

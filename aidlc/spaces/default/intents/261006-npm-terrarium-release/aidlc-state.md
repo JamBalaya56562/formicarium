@@ -7,7 +7,7 @@
 - **Scope**: classic
 - **Start Date**: 2026-10-06T10:44:22Z
 - **State Version**: 8
-- **Active Agent**: aidlc-architect-agent
+- **Active Agent**: aidlc-developer-agent
 - **Worktree Path**:
 - **Bolt Refs**:
 - **Practices Affirmed Timestamp**: 2026-10-06T18:17:48Z
@@ -19,6 +19,7 @@
 - **Test Strategy**: Standard
 - **Review Override**: 
 - **Guard Policy**: relaxed (from scope classic)
+- **Guards On**: plan-approval (set by you)
 - **Sensors**: on (from scope classic)
 - **Learnings**: on (from scope classic)
 - **Summary Confirmation**: off (from scope classic)
@@ -32,13 +33,53 @@
 ## Execution Plan Summary
 - **Total Stages**: 18
 - **Completed**: 12
-- **In Progress**: functional-design
+- **In Progress**: code-generation
 
 ## Runtime State
 - **Revision Count**: 3
 - **Construction Checkpoints**: enabled
 - **Construction Iteration**: unit-major
 - **Construction Execution**: serial
+
+- **Skeleton Stance**: on
+
+
+
+
+
+
+
+
+
+
+
+- **Construction Verification Command**: FORMICARIUM_CONSUMER=/private/tmp/formicarium-u1-consumer-v7 FORMICARIUM_CANDIDATE=.artifacts/u1-package-v7.manifest.json /Users/mutoakio/.local/share/mise/installs/node/24/bin/node --test tests/package/pack.test.mjs tests/package/consumer.test.mjs tests/package/nested-worker.test.mjs && FORMICARIUM_CONSUMER=/private/tmp/formicarium-u1-consumer-v7 FORMICARIUM_CANDIDATE=.artifacts/u1-package-v7.manifest.json PLAYWRIGHT_BROWSERS_PATH=/private/tmp/formicarium-playwright /Users/mutoakio/.local/share/mise/installs/node/24/bin/node node_modules/@playwright/test/cli.js test --config tests/package/playwright.config.mjs tests/package/consumer.spec.mjs --grep 'public removed nested cwd' --workers=1 --retries=0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- **Active Unit**: u3-terrarium-integration
+
+- **Unit State**: paused
+
+
+
+
+
+- **Unit Pause Reason**: Human authorized separate terrarium ownership; intent 261008-formicarium-integration created in sibling terrarium. New-intent directive requires fresh-session handoff; U3 review remains incomplete.
+
+- **Unit Next Action**: Resume terrarium intent 261008-formicarium-integration in a fresh terrarium session; preserve source and candidate evidence, complete owning review, then return identified evidence and formally revise U3 ownership before completion.
 
 ## Phase Progress
 <!-- Status values: Pending, Active, Verified, Skipped -->
@@ -79,11 +120,11 @@
 
 ### CONSTRUCTION PHASE
 Per unit: [TBD]
-- [-] functional-design — EXECUTE
-- [ ] nfr-requirements — EXECUTE
-- [ ] nfr-design — EXECUTE
-- [ ] infrastructure-design — EXECUTE
-- [ ] code-generation — EXECUTE
+- [S] functional-design — EXECUTE
+- [S] nfr-requirements — EXECUTE
+- [S] nfr-design — EXECUTE
+- [S] infrastructure-design — EXECUTE
+- [-] code-generation — EXECUTE
 - [ ] build-and-test — EXECUTE
 - [ ] ci-pipeline — SKIP
 
@@ -98,12 +139,14 @@ Per unit: [TBD]
 
 ## Current Status
 - **Lifecycle Phase**: CONSTRUCTION
-- **Current Stage**: functional-design
-- **Next Stage**: nfr-requirements
+- **Current Stage**: code-generation
+- **Next Stage**: build-and-test
 - **Status**: Running
-- **Last Updated**: 2026-10-07T10:56:18Z
+- **Last Updated**: 2026-10-08T01:11:44Z
+
+- **Construction Autonomy Mode**: autonomous
 
 ## Session Resume Point
 - **Last Completed Stage**: delivery-planning
-- **Next Action**: Execute Functional Design
+- **Next Action**: Execute Code Generation
 - **Pending Artifacts**: none

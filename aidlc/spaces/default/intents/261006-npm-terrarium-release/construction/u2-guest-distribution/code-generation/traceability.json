@@ -1,0 +1,74 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-guest-distribution",
+  "upstream_ids": [
+    "AC4.3.1",
+    "AC4.3.2",
+    "AC4.3.3",
+    "FR6",
+    "FR6.1",
+    "FR6.2",
+    "NFR1",
+    "NFR3",
+    "NFR4",
+    "NFR5",
+    "NFR7"
+  ],
+  "coverage": [
+    {
+      "id": "AC4.3.1",
+      "status": "OK",
+      "target": "tests/guest-distribution/consumer.spec.mjs"
+    },
+    {
+      "id": "AC4.3.2",
+      "status": "OK",
+      "target": "tests/guest-distribution/integration.test.mjs"
+    },
+    {
+      "id": "AC4.3.3",
+      "status": "OK",
+      "target": "tests/guest-distribution/resolver.test.mjs"
+    },
+    {
+      "id": "FR6",
+      "status": "OK",
+      "target": "scripts/guest-distribution/stage.mjs"
+    },
+    {
+      "id": "FR6.1",
+      "status": "OK",
+      "target": "integration/terrarium/guest-distribution/manifest.mjs"
+    },
+    {
+      "id": "FR6.2",
+      "status": "OK",
+      "target": "tests/guest-distribution/manifest.test.mjs"
+    },
+    {
+      "id": "NFR1",
+      "status": "OK",
+      "target": "tests/guest-distribution/consumer.spec.mjs"
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "scripts/guest-distribution/coverage.mjs"
+    },
+    {
+      "id": "NFR4",
+      "status": "OK",
+      "target": "tests/guest-distribution/fixtures.test.mjs"
+    },
+    {
+      "id": "NFR5",
+      "status": "OK",
+      "target": "scripts/guest-distribution/stage.mjs"
+    },
+    {
+      "id": "NFR7",
+      "status": "OK",
+      "target": "tests/guest-distribution/resolver.test.mjs"
+    }
+  ]
+}
