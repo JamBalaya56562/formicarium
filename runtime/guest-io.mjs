@@ -73,7 +73,7 @@ function mkdirParents(FS, path) {
 function mkdirIfMissing(FS, path, mode = 0o755) {
   const found = FS.analyzePath(path);
   if (found.exists) {
-    if (!FS.isDir(found.object.mode)) {
+    if (!FS.isDir(FS.lstat(path).mode)) {
       throw new Error(`cannot create directory ${path}: a non-directory exists there`);
     }
     return;
@@ -87,7 +87,9 @@ function mkdirIfMissing(FS, path, mode = 0o755) {
  */
 export function populateFs(FS, entries) {
   validateEntries(entries);
-  for (const entry of entries) {
+  const inodes = new Map();
+  const ordered = [...entries].sort((a, b) => (a.type === 'dir' ? 0 : a.type === 'symlink' ? 2 : 1) - (b.type === 'dir' ? 0 : b.type === 'symlink' ? 2 : 1));
+  for (const entry of ordered) {
     const type = entry.type ?? 'file';
     mkdirParents(FS, entry.path);
     if (type === 'dir') {
@@ -95,15 +97,21 @@ export function populateFs(FS, entries) {
     } else if (type === 'symlink') {
       FS.symlink(entry.target, entry.path);
     } else {
-      FS.writeFile(entry.path, entry.data);
-      FS.chmod(entry.path, entry.mode ?? 0o644);
+      const peer = entry.inodeId && inodes.get(entry.inodeId);
+      if (peer) FS.link(peer, entry.path);
+      else {
+        FS.writeFile(entry.path, entry.data);
+        FS.chmod(entry.path, entry.mode ?? 0o644);
+        if (entry.inodeId) inodes.set(entry.inodeId, entry.path);
+      }
     }
   }
+  for (const entry of entries) if (entry.type === 'dir') FS.chmod(entry.path, entry.mode ?? 0o755);
 }
 
 /**
  * `root` 以下を写し取り、populateFs にそのまま渡せるエントリの配列にする。
- * hard link は別々のファイルとして写る（次の実行に渡すための写しなので、それで足りる）。
+ * inode identity、mode、linkを保持する。特殊fileは完全snapshotにできないので拒否する。
  */
 export function snapshotFs(FS, root) {
   const entries = [];
@@ -120,9 +128,8 @@ export function snapshotFs(FS, root) {
     } else if (kind === S_IFLNK) {
       entries.push({ path, type: 'symlink', target: FS.readlink(path) });
     } else if (kind === S_IFREG) {
-      entries.push({ path, type: 'file', data: FS.readFile(path), mode });
-    }
-    // デバイスや FIFO は写さない（ゲストの作業ディレクトリには現れない想定）
+      entries.push({ path, type: 'file', data: new Uint8Array(FS.readFile(path)), mode, inodeId: `inode:${stat.ino}` });
+    } else throw new GuestRunError('snapshot contains an unsupported special file');
   };
   if (FS.analyzePath(root).exists) walk(root);
   return entries;
@@ -242,7 +249,7 @@ export function runGuest(options) {
           snapshot = snapshotRoots.flatMap((root) => snapshotFs(moduleRef.FS, root));
         }
       } catch (error) {
-        reject(new GuestRunError(`failed to snapshot ${snapshotRoots}: ${error.message}`, { cause: error }));
+        reject(Object.assign(new GuestRunError('failed to snapshot guest filesystem', { cause: error }), { code: 'SNAPSHOT' }));
         return;
       }
       resolve({ exitCode, stdout: output.stdout.bytes(), stderr: output.stderr.bytes(), snapshot });
@@ -264,9 +271,11 @@ export function runGuest(options) {
       noInitialRun: false,
       preRun: [
         (mod) => {
+          moduleRef = core.captureModule?.(mod) ?? mod;
           const FS = mod.FS;
           FS.init(() => null, output.stdout.byte, output.stderr.byte);
           populateFs(FS, entries);
+          mkdirParents(FS, cwd);
           mkdirIfMissing(FS, cwd);
           FS.chdir(cwd);
           Object.assign(mod.ENV, { HOME: '/root', PATH: '/usr/bin:/bin', ...env });
@@ -282,8 +291,8 @@ export function runGuest(options) {
         finish(code);
       },
       onAbort: (what) => fail(`core aborted: ${what}`),
-      print: (line) => onStdout?.(new TextEncoder().encode(`${line}\n`)),
-      printErr: (line) => onStderr?.(new TextEncoder().encode(`${line}\n`)),
+      print: (line) => writeLine(output.stdout, line),
+      printErr: (line) => writeLine(output.stderr, line),
     };
     Promise.resolve()
       .then(() => createModule(moduleOptions))

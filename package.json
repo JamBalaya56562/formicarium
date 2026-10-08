@@ -1,10 +1,19 @@
 {
-  "name": "formicarium",
-  "version": "0.0.0",
+  "name": "@aletheia-works/formicarium",
+  "version": "0.1.0-rc.1",
   "private": true,
   "description": "blink（x86-64 Linux ユーザーモードエミュレータ）を wasm 上で動かす PoC",
   "license": "Apache-2.0",
   "type": "module",
+  "files": ["runtime/public.mjs", "runtime/errors.mjs", "runtime/validation.mjs", "runtime/state.mjs", "runtime/lifecycle.mjs", "runtime/protocol.mjs", "runtime/worker-execution.mjs", "runtime/core.mjs", "runtime/guest-io.mjs", "runtime/node/api.mjs", "runtime/node/package-worker.mjs", "runtime/web/api.mjs", "runtime/web/package-worker.mjs", "types/", "assets/", "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md"],
+  "exports": {
+    ".": {"types": "./types/index.d.ts", "import": "./runtime/public.mjs"},
+    "./node": {"types": "./types/node.d.ts", "import": "./runtime/node/api.mjs"},
+    "./browser": {"types": "./types/browser.d.ts", "import": "./runtime/web/api.mjs"},
+    "./assets/blink.mjs": "./assets/blink.mjs",
+    "./assets/blink.wasm": "./assets/blink.wasm",
+    "./assets/build-info.json": "./assets/build-info.json"
+  },
   "engines": {
     "node": ">=24"
   },
@@ -19,6 +28,10 @@
     "serve": "node scripts/serve.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "1.55.0",
+    "typescript": "5.9.3",
+    "eslint": "9.36.0",
+    "istanbul-lib-instrument": "6.0.3",
+    "istanbul-lib-coverage": "3.2.2"
   }
 }

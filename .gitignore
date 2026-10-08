@@ -87,7 +87,6 @@ aidlc/diagnostics/
 # concurrent appends — there is intentionally NO .gitattributes merge=union,
 # which was proven to corrupt the multi-line audit blocks) ·
 # aidlc/spaces/*/intents/*/<phase>/<stage>/*.md (artifacts + diary).
-.claude/settings.local.json
 # END AI-DLC:gitignore
 
 # formicarium build outputs
@@ -97,3 +96,4 @@ target/
 node_modules/
 test-results/
 playwright-report/
+.artifacts/

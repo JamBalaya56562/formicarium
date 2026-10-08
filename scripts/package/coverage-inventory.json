@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "threshold": 80,
+  "files": [
+    "runtime/public.mjs",
+    "runtime/errors.mjs",
+    "runtime/validation.mjs",
+    "runtime/state.mjs",
+    "runtime/lifecycle.mjs",
+    "runtime/protocol.mjs",
+    "runtime/worker-execution.mjs",
+    "runtime/core.mjs",
+    "runtime/guest-io.mjs",
+    "runtime/node/api.mjs",
+    "runtime/node/package-worker.mjs",
+    "runtime/web/api.mjs",
+    "runtime/web/package-worker.mjs"
+  ],
+  "node": {
+    "host": 1,
+    "workers": 25,
+    "workerBreakdown": {
+      "nodeApi": 4,
+      "nodeWorker": 3,
+      "realConsumer": 18
+    }
+  },
+  "browserProjects": [
+    "chromium",
+    "firefox",
+    "webkit"
+  ],
+  "browserCases": {
+    "browser API owns copied filesystem seed and reset without core startup": 0,
+    "browser session rejects malformed roots, assets and seed before ownership changes": 0,
+    "invalid ELF and pre-aborted run create no browser Worker": 0,
+    "isolation deficiency is UNSUPPORTED_ENV and guest never starts": 0,
+    "cross-origin Worker is explicitly rejected instead of blob fallback": 0,
+    "CPU-bound browser Worker timeout releases BUSY reservation after termination": 1,
+    "actual browser package Worker removes Atomics.waitAsync before core import": 1,
+    "actual browser Worker rejects unsupported protocol major": 1,
+    "actual browser Worker rejects unknown request type": 1,
+    "actual browser Worker classifies missing assets without serializing arbitrary diagnostics": 1,
+    "browser asset reader returns exact fetched bytes in the Worker realm": 1,
+    "browser asset reader rejects HTTP404 instead of accepting its response body": 1,
+    "real installed browser archive normal and nonzero byte guest": 34,
+    "real browser snapshot restores links/modes/deletion to next fresh core": 34,
+    "real browser pthread guest exits normally before next fresh run": 34,
+    "real browser CPU-bound timeout releases session for immediate run": 34,
+    "real browser CPU-bound abort releases session for immediate run": 34,
+    "host descendant broker validates valid and preserves ports": 2,
+    "host descendant broker validates invalid-url and preserves ports": 1,
+    "host descendant broker validates invalid-options and preserves ports": 1,
+    "installed real loader mutation never executes unverified original URL bytes": 17,
+    "verified browser loader obeys explicit CSP blob permission true": 17,
+    "verified browser loader obeys explicit CSP blob permission false": 1,
+    "host releases every verified Blob after normal abort timeout and disposal": 85,
+    "public removed nested cwd is recreated by real guest run": 17,
+    "host descendant broker validates resource-valid and preserves ports": 1,
+    "host descendant broker validates resource-stale and preserves ports": 1,
+    "host descendant broker validates resource-duplicate and preserves ports": 1,
+    "host descendant broker validates resource-invalid-version and preserves ports": 1,
+    "host descendant broker validates resource-invalid-bytes and preserves ports": 1,
+    "host descendant broker validates invalid-resource and preserves ports": 1,
+    "host descendant broker validates blob-url and preserves ports": 1,
+    "removed cwd snapshot rollback next-run and reset preserve seed state": 51
+  },
+  "exclusions": {
+    "generated blink loader/wasm": "third-party generated assets checked by hashes/provenance/real consumers",
+    "types": "declarations checked by strict fixtures",
+    "guest ELF": "external/native fixtures",
+    "scripts/tests/CLI/registry": "development-only, excluded from distribution"
+  }
+}

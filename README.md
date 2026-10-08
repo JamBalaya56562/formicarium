@@ -9,6 +9,34 @@ document is [`OUTCOMES.md`](OUTCOMES.md). Background research is in
 [`aidlc/spaces/default/knowledge/documents/research/cheerpx-oss.md`](aidlc/spaces/default/knowledge/documents/research/cheerpx-oss.md)
 (copied from aletheia-works/terrarium).
 
+## Local runtime package candidate
+
+`@aletheia-works/formicarium@0.1.0-rc.1` is a private local candidate and is not published. Install the exact verified archive locally:
+
+```sh
+npm install /absolute/path/aletheia-works-formicarium-0.1.0-rc.1.tgz
+```
+
+```js
+import { createSession } from '@aletheia-works/formicarium/node';
+import { decodeUtf8 } from '@aletheia-works/formicarium';
+const session = await createSession({ cwd: '/work', home: '/home/guest' });
+try {
+  const result = await session.run({ guest: guestBytes, args: ['--version'] });
+  console.log(result.exitCode, decodeUtf8(result.stdout));
+} finally { await session.dispose(); }
+```
+
+`guestBytes` is a caller-provided static ELF64 little-endian x86-64 Linux executable. Guests are distributed separately. Node requires version 24 or later. The browser entry is `@aletheia-works/formicarium/browser`; serve its Worker and assets on the same origin with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`. Browsers require Worker, SharedArrayBuffer and cross-origin isolation. No service worker setup is included.
+
+The browser evaluates the verified loader bytes as a Blob module. Its Content Security Policy must explicitly allow `blob:` in `script-src` and WebAssembly compilation (for example, `script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'`). Root and pthread Workers start from same-origin HTTP module URLs; arbitrary Blob Worker URLs are rejected. A policy that blocks the verified module rejects the run with `ASSET_LOAD`.
+
+The default run deadline is 600000 ms and includes Worker startup. Supply `timeoutMs` or an AbortSignal explicitly when needed. Each run creates a fresh Worker. A session accepts one active run; concurrent operations reject with `BUSY`. Nonzero guest exits resolve with byte stdout/stderr. Failures reject with `ExecutionError`, a stable code and copied partial byte output. `decodeUtf8` uses replacement decoding; preserve raw bytes when fidelity matters. `onOutput` receives ordered copied chunks; callback exceptions fail the run.
+
+Filesystem entries are copied at input and output. Persisted roots are cwd/home; executable and temporary system paths are excluded. Files sharing `inodeId` preserve hard links, symlinks remain links, and modes are preserved. Use `listEntries`, `readFile`, `remove`, `setCwd` and `reset` between runs. If the selected cwd was removed between runs, the next run recreates its missing directory ancestors with mode 0755 while preserving existing directory modes and rejecting file or symlink collisions. A successful run commits its snapshot after cleanup; timeout, abort or failed snapshot rolls it back. `dispose` is idempotent and permanently closes the session. Cleanup failure closes the session.
+
+Default assets resolve relative to the installed package. Explicit `assets` requires absolute loaderURL, wasmURL, buildInfoURL and workerURL. Loader/wasm SHA-256 digests and clean pinned core metadata are checked before initialization. The checked loader bytes are evaluated without rereading the original URL. Node uses a run-specific directory with mode 0700 and an exclusive loader copy with mode 0400; pthreads use that same copy. The host owns these files and browser Blob URLs, stops owned Workers before releasing them, and releases resources after normal completion, abort, timeout or disposal even when the root Worker is forcibly terminated. Missing or mixed assets reject with `ASSET_LOAD`; initialization failure is `CORE_INIT`. See `THIRD_PARTY_NOTICES.md` and `assets/build-info.json` for provenance. Local test observations are recorded in the active AI-DLC U1 record; real Safari and full product regression/CI remain separate verification obligations.
+
 ## この PoC でしていること
 
 [jart/blink](https://github.com/jart/blink)（x86-64 Linux のユーザーモードエミュレータ）の fork

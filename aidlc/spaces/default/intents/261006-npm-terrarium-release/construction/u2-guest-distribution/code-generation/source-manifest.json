@@ -1,0 +1,26 @@
+{
+  "stage": "code-generation",
+  "unit": "u2-guest-distribution",
+  "version": 1,
+  "writes": [
+    { "path": "integration/terrarium/guest-distribution/manifest.mjs" },
+    { "path": "integration/terrarium/guest-distribution/fixtures.mjs" },
+    { "path": "integration/terrarium/guest-distribution/resolver.mjs" },
+    { "path": "integration/terrarium/guest-distribution/index.d.ts" },
+    { "path": "integration/terrarium/guest-distribution/resolver.d.mts" },
+    { "path": "scripts/guest-distribution/stage.mjs" },
+    { "path": "scripts/guest-distribution/coverage.mjs" },
+    { "path": "tests/guest-distribution/manifest.test.mjs" },
+    { "path": "tests/guest-distribution/fixtures.test.mjs" },
+    { "path": "tests/guest-distribution/resolver.test.mjs" },
+    { "path": "tests/guest-distribution/stage.test.mjs" },
+    { "path": "tests/guest-distribution/integration.test.mjs" },
+    { "path": "tests/guest-distribution/consumer.spec.mjs" },
+    { "path": "tests/guest-distribution/playwright.config.mjs" },
+    { "path": "tests/guest-distribution/serve.mjs" },
+    { "path": "tests/guest-distribution/types.ts" },
+    { "path": "tests/guest-distribution/tsconfig.json" },
+    { "path": "tests/guest-distribution/eslint.config.mjs" },
+    { "path": "docs/guest-distribution.md" }
+  ]
+}

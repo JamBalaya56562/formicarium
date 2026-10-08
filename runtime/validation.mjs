@@ -1,0 +1,159 @@
+import { invalid, failure } from './errors.mjs';
+
+export function normalizePath(value) {
+  invalid(typeof value === 'string' && value.startsWith('/') && !value.includes('\0'), 'path must be an absolute POSIX path');
+  const parts = value.split('/');
+  invalid(!parts.includes('..'), 'parent path components are forbidden');
+  return `/${parts.filter((part) => part && part !== '.').join('/')}`;
+}
+
+export const inRoots = (path, roots) => roots.some((root) => path === root || path.startsWith(`${root}/`));
+export const parentPath = (path) => path.slice(0, path.lastIndexOf('/')) || '/';
+export const copyEntry = (entry) => entry.type === 'file' ? { ...entry, data: new Uint8Array(entry.data) } : { ...entry };
+
+export function normalizeRoots(cwd, home) {
+  const roots = [normalizePath(cwd), normalizePath(home)];
+  for (const root of roots) {
+    invalid(root !== '/' && !inRoots(root, ['/guest', '/dev', '/proc', '/tmp']), 'reserved persistence root');
+  }
+  return [...new Set(roots)].filter((root, index, all) => !all.some((outer, other) => other !== index && inRoots(root, [outer]))).sort();
+}
+
+function resolveLink(path, target) {
+  invalid(typeof target === 'string' && target.length > 0 && !target.includes('\0'), 'symlink target must be a nonempty string');
+  const parts = target.startsWith('/') ? [] : parentPath(path).split('/').filter(Boolean);
+  for (const part of target.split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') parts.pop();
+    else parts.push(part);
+  }
+  return `/${parts.join('/')}`;
+}
+
+function validateMode(mode) {
+  invalid(Number.isInteger(mode) && mode >= 0 && mode <= 0o7777, 'file mode is invalid');
+}
+
+function validateEntry(raw, roots) {
+  invalid(raw && typeof raw === 'object', 'entry must be an object');
+  const path = normalizePath(raw.path);
+  invalid(inRoots(path, roots), 'entry must lie inside persistence roots');
+  invalid(['dir', 'file', 'symlink'].includes(raw.type), 'entry type is invalid');
+  if (raw.type === 'symlink') {
+    invalid(inRoots(resolveLink(path, raw.target), roots), 'symlink target escapes persistence roots');
+    return { path, type: 'symlink', target: raw.target };
+  }
+  validateMode(raw.mode);
+  if (raw.type === 'dir') return { path, type: 'dir', mode: raw.mode };
+  invalid(typeof raw.inodeId === 'string' && raw.inodeId.length > 0 && !raw.inodeId.includes('\0'), 'file inodeId is invalid');
+  invalid(raw.data instanceof Uint8Array, 'file data must be Uint8Array');
+  return { path, type: 'file', mode: raw.mode, inodeId: raw.inodeId, data: new Uint8Array(raw.data) };
+}
+
+export function equalBytes(left, right) {
+  return left.length === right.length && left.every((byte, index) => byte === right[index]);
+}
+
+/** Validate the entire candidate before returning any owned state. */
+export function validateEntries(entries, roots, { seed = false, directories = [] } = {}) {
+  invalid(Array.isArray(entries), 'entries must be an array');
+  const found = new Map();
+  const inodes = new Map();
+  for (const raw of entries) {
+    const entry = validateEntry(raw, roots);
+    invalid(!found.has(entry.path), 'duplicate entry path');
+    found.set(entry.path, entry);
+    if (entry.type !== 'file') continue;
+    const peer = inodes.get(entry.inodeId);
+    invalid(!peer || (peer.mode === entry.mode && equalBytes(peer.data, entry.data)), 'hard-link group differs in data or mode');
+    inodes.set(entry.inodeId, entry);
+  }
+  if (seed) {
+    for (const path of directories) {
+      const entry = found.get(path);
+      invalid(!entry || entry.type === 'dir', 'initial cwd/home must be directories');
+      if (!entry) found.set(path, { path, type: 'dir', mode: 0o755 });
+    }
+  }
+  for (const root of roots) invalid(!found.has(root) || found.get(root).type === 'dir', 'persistence roots must remain directories');
+  for (const entry of [...found.values()]) {
+    let parent = parentPath(entry.path);
+    while (inRoots(parent, roots)) {
+      const existing = found.get(parent);
+      invalid(!existing || existing.type === 'dir', 'entry has a non-directory parent');
+      if (!existing) {
+        invalid(seed, 'snapshot has a missing parent');
+        found.set(parent, { path: parent, type: 'dir', mode: 0o755 });
+      }
+      parent = parentPath(parent);
+    }
+  }
+  return [...found.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+}
+
+export function validateElf(guest) {
+  invalid(guest instanceof Uint8Array && guest.length >= 64, 'guest must contain an ELF64 header');
+  const bytes = new Uint8Array(guest);
+  const header = new DataView(bytes.buffer);
+  invalid([127, 69, 76, 70, 2, 1, 1].every((byte, index) => bytes[index] === byte), 'guest must be ELF64 little-endian');
+  invalid([2, 3].includes(header.getUint16(16, true)) && header.getUint16(18, true) === 62 && header.getUint32(20, true) === 1, 'guest must be an x86-64 executable');
+  invalid(header.getUint16(52, true) === 64, 'ELF header size is invalid');
+  const offset = header.getBigUint64(32, true);
+  const count = header.getUint16(56, true);
+  const size = header.getUint16(54, true);
+  invalid(count >= 1 && count <= 256 && size === 56 && offset >= 64n, 'ELF program header shape is unsupported');
+  invalid(offset + BigInt(count) * BigInt(size) <= BigInt(bytes.length), 'ELF program headers exceed guest bounds');
+  let hasLoad = false;
+  for (let index = 0; index < count; index++) {
+    const start = Number(offset) + index * size;
+    const type = header.getUint32(start, true);
+    invalid(type !== 3, 'dynamic ELF interpreter is unsupported');
+    hasLoad ||= type === 1;
+    const fileOffset = header.getBigUint64(start + 8, true);
+    const fileSize = header.getBigUint64(start + 32, true);
+    invalid(fileOffset + fileSize <= BigInt(bytes.length), 'ELF segment exceeds guest bounds');
+    invalid(type !== 1 || fileSize <= header.getBigUint64(start + 40, true), 'ELF load segment memory bounds are invalid');
+  }
+  invalid(hasLoad, 'ELF must contain a loadable segment');
+  return bytes;
+}
+
+export function validateRun(options, home) {
+  invalid(options && typeof options === 'object', 'run options must be an object');
+  const guest = validateElf(options.guest);
+  const args = options.args ?? [];
+  invalid(Array.isArray(args) && args.every((arg) => typeof arg === 'string' && !arg.includes('\0')), 'args must contain strings without NUL');
+  const env = options.env ?? {};
+  invalid(env && typeof env === 'object' && !Array.isArray(env), 'env must be a string map');
+  const copy = Object.create(null);
+  for (const [name, value] of Object.entries(env)) {
+    invalid(/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && typeof value === 'string' && !value.includes('\0'), 'env key or value is invalid');
+    copy[name] = value;
+  }
+  invalid(copy.HOME === undefined || copy.HOME === home, 'env HOME must match session home');
+  copy.HOME = home;
+  const timeoutMs = options.timeoutMs ?? 600_000;
+  invalid(Number.isSafeInteger(timeoutMs) && timeoutMs > 0, 'timeoutMs must be a positive finite integer');
+  invalid(options.onOutput === undefined || typeof options.onOutput === 'function', 'onOutput must be a function');
+  const signal = options.signal;
+  invalid(signal === undefined || (typeof signal?.aborted === 'boolean' && typeof signal.addEventListener === 'function' && typeof signal.removeEventListener === 'function'), 'signal must be an AbortSignal');
+  if (signal?.aborted) throw failure('ABORTED', 'Run was already aborted');
+  return { guest, args: [...args], env: copy, timeoutMs, onOutput: options.onOutput, signal };
+}
+
+export function validateAssets(assets) {
+  invalid(assets && typeof assets === 'object', 'assets must be an object');
+  const result = {};
+  for (const name of ['loaderURL', 'wasmURL', 'workerURL', 'buildInfoURL']) {
+    try {
+      invalid(typeof assets[name] === 'string' || assets[name] instanceof URL, 'asset URL type is invalid');
+      const url = new URL(assets[name]);
+      invalid(['file:', 'http:', 'https:'].includes(url.protocol), 'asset URL scheme is unsupported');
+      result[name] = url.href;
+    } catch (error) {
+      if (error.code === 'INVALID_INPUT') throw error;
+      throw failure('INVALID_INPUT', 'asset URL must be absolute');
+    }
+  }
+  return result;
+}

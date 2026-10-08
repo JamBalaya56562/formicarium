@@ -128,3 +128,77 @@ Node.js は `tests/node/pitchfork-basic.test.mjs` を 3 回実行したときの
   エラーにするか、sh をゲストとして動かすかは決めていない
 - 実機の Safari（macOS）では確かめていない（WebKit で代用。既存の未解決事項と同じ）
 - 組み込みの API：案 A の場合、`runtime/` を npm パッケージとして切り出すか、terrarium に写すか
+
+## 7. U3 common runtime adoption（2026-10-08）
+
+本intentで承認した構成では、terrariumは通常dependencyとして同じformicarium npm tarballを導入する。
+旧設計の未決事項のうち、runtimeの複製・汎用shell追加は採用しない。
+既存公開Session/Toolは保持し、aube/pitchforkの端末だけをC1公開APIへ接続する。
+base/ref/fixture/cwdとC4イベント・queue・keyboard、C5 exact-originを翻訳する。
+
+検証済み：mainのadapter/C3/asset unitは26 pass、型検査成功。
+quote隣接は既存splitArgsと比較してRed（10 pass/1 fail）を観測し、同じsuiteでGreen（11 pass/0 fail）。
+最新aube2.7.0のnativeとinstalled C1 Node Workerは、空/workから `init --bare` を実行して
+`/work/package.json` を生成し、公開readFileで内容を確認した。
+pitchfork2.30.1はmainでビルド成功（38分36秒）、nativeとinstalled C1 Workerのversionはexit0で一致した。
+commitは `1054549e85470b08d9507e2c82c850959a4b3914`、guest SHA-256は
+`f30395a418e526e939350cc87e03d43c92d1aa0a0b0b104130761a8b8daa841e`。
+C4/C5全browser suiteの成功は未検証。
+
+tarball SHA-256は `969e9fab854d4499da1d38087bd601b65042b6d50b086c8fc8ddaefd0752f810`。
+mainでU1の既存候補と23配布fileが一致した。同じpackのterrarium導入であり、新provider buildではない。
+guest/fixturesは外部の完全なsite-v3候補で供給し、npmに入れない。
+同じ既存パッチをlatest pitchforkへ適用する。aubeを再ビルドしない。
+
+### 実行手順と同一性
+
+external terrariumのpackage install/lock、CSS生成、Bun bundle、各suiteはmainだけが逐次実行する。
+`FORMICARIUM_GUEST_SITE` に完全なlatest siteを明示し、`assemble-pages.sh` はinstalled23fileと全ref資産のhashを検証後に配置する。
+`TERRARIUM_BUN` にmiseで確認したBun実体、`PLAYWRIGHT_BROWSERS_PATH` に対応するbrowser実体cacheを設定する。
+専用Playwright configはChromium/Firefox/WebKit、1worker、retry0。
+browser suiteは実tarball/Worker/latest guestを利用し、local Pages相当と実Pagesを区別する。
+
+### 固定23 coverage inventory
+
+U1固定13 + U2固定3 + U3のadapter/catalog/terminal/legacy Session/index/npm/page計7を保持する。
+export-only入口もfile一覧に残す。生成blink・xterm・型・guest・tests/development scriptsは理由付き別検証。
+U3のTSは同じsource bytesをtranspile→instrument→main Bun bundleし、実配布bundleとの対応を記録する。
+未importは0、missing realm・旧generation/source/candidate receiptは失敗。
+prepareは新規outputdirのみで、旧結果を上書きして採用できない。
+同じpackのU1既存coverageはimmutable component importとして元世代/source/hash/realm一覧を明示し、
+現在世代を実行したと偽装しない。U2新guest候補には今世代C3 counterが必要。
+検証済み：fresh generation `47181b67-22c6-4eff-9993-4488e2c103ed` の Node26 cases、browser45 cases は全成功。
+固定23 files は1567 lines中1283 covered、skipped0、81.87%で80% floorを満たした。
+source identityは `10e59a2ce434302860783e7d0436efda25e21ab2d5a22354d0a06f6f9c23b9f6`、
+candidateは `3e3401c5a93bca5c7635d2ba0761bd72125b3421319c6ce054b178e011602983`。
+Node receiptはmain親processの実exit0観測から確定し、attemptは
+`1284a873-3a20-42d6-88dc-b9d51a1275b5`。今世代46 receiptsと既存U1 immutable component importを区別する。
+collectorのmissing raw/旧attempt/nonzero等の負例は9 pass。
+結果は `.artifacts/u3-coverage-v1/{inventory,report,coverage-final}.json`。統合前CIは未検証。
+80% floor・統合前CIは維持する。U4が全体判定を所有する。
+
+### 未検証・公開前事項
+
+- U2 R-01 stale receipt/R-02 retained ref missing assetは未解消。U3のfreshdir/完全候補使用を修正完了とは呼ばない。
+- 検証済み：C4 30 cases、C5修正後15 cases（22.3秒）、bridge consumer6 cases（12.2秒）。
+  C5は同origin3成功/cross-origin Chromium成功とFirefox/WebKit拒否/隔離不足3拒否を含む。
+  計測用browser再実行45 casesも成功し、最終coverageは81.87%。
+- 負例では要素未接続・Session未作成のためmarker state自体が存在しないこととWorker request0を独立記録する。
+  正例の実guest marker生成/readFileと、陰性で存在しないSessionを読めたという主張は区別する。
+- 実GitHub Pages、service-worker実配信、公開済みRC受入れ、実機Safari、統合前CIは未検証。
+- push/tag/npm/JSR/Pages公開の承認は本実装計画に含まれない。
+
+### C5 local hostの配信前提（Red→Green検証済み）
+
+mainのFirefox traceでcross-origin子documentがCORP不足によりnavigation時点で遮断され、
+子のJSが実行されず `terrarium:error` も届かないことを観測した。
+local iframe test serverには `Cross-Origin-Resource-Policy: cross-origin` を明示し、
+文書を読み込んだ後のcredentialless互換性拒否とguest非実行を検査する。
+COEPの資産要求とiframeへの再帰適用は
+[MDN COEP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy)、
+credentialless例外は[MDN iframe credentialless](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/IFrame_credentialless)を根拠とする。
+CORPは隔離自体を有効化しない。隔離不足のfixtureは親も子も `/plain/` でCOOP/COEPを省略し、
+実際の双方の `crossOriginIsolated === false` をassertしてから拒否を検査する。
+正常ケースの通知・marker生成、拒否ケースの通知・Worker request0という基準は維持する。
+実GitHub Pagesのresponse headersと任意header設定可否は未検証であり、
+このlocal配信条件での成功を実Pagesの成功とは扱わない。
