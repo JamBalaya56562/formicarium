@@ -5,11 +5,40 @@
   "description": "blink（x86-64 Linux ユーザーモードエミュレータ）を wasm 上で動かす PoC",
   "license": "Apache-2.0",
   "type": "module",
-  "files": ["runtime/public.mjs", "runtime/errors.mjs", "runtime/validation.mjs", "runtime/state.mjs", "runtime/lifecycle.mjs", "runtime/protocol.mjs", "runtime/worker-execution.mjs", "runtime/core.mjs", "runtime/guest-io.mjs", "runtime/node/api.mjs", "runtime/node/package-worker.mjs", "runtime/web/api.mjs", "runtime/web/package-worker.mjs", "types/", "assets/", "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md"],
+  "files": [
+    "runtime/public.js",
+    "runtime/contracts.js",
+    "runtime/errors.js",
+    "runtime/validation.js",
+    "runtime/state.js",
+    "runtime/lifecycle.js",
+    "runtime/protocol.js",
+    "runtime/worker-execution.js",
+    "runtime/core.js",
+    "runtime/guest-io.js",
+    "runtime/node/api.js",
+    "runtime/node/package-worker.js",
+    "runtime/web/api.js",
+    "runtime/web/package-worker.js",
+    "types/",
+    "assets/",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "README.md"
+  ],
   "exports": {
-    ".": {"types": "./types/index.d.ts", "import": "./runtime/public.mjs"},
-    "./node": {"types": "./types/node.d.ts", "import": "./runtime/node/api.mjs"},
-    "./browser": {"types": "./types/browser.d.ts", "import": "./runtime/web/api.mjs"},
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./runtime/public.js"
+    },
+    "./node": {
+      "types": "./types/node.d.ts",
+      "import": "./runtime/node/api.js"
+    },
+    "./browser": {
+      "types": "./types/browser.d.ts",
+      "import": "./runtime/web/api.js"
+    },
     "./assets/blink.mjs": "./assets/blink.mjs",
     "./assets/blink.wasm": "./assets/blink.wasm",
     "./assets/build-info.json": "./assets/build-info.json"
@@ -18,20 +47,34 @@
     "node": ">=24"
   },
   "scripts": {
-    "test:build": "node --test tests/node/build.test.mjs",
-    "test:runner": "node --test tests/node/runner.test.mjs",
-    "test:probe": "node --test tests/node/probe.test.mjs",
-    "test:aube": "node --test tests/node/aube-1645.test.mjs",
-    "test:measure": "node --test tests/node/measure.test.mjs",
-    "test:pitchfork": "node --test tests/node/pitchfork-basic.test.mjs",
-    "test:browser": "playwright test tests/browser/probe.spec.mjs tests/browser/aube-1645.spec.mjs tests/browser/pitchfork-basic.spec.mjs",
-    "serve": "node scripts/serve.mjs"
+    "test:build": "node --test tests/node/build.test.js",
+    "test:runner": "node --test tests/node/runner.test.js",
+    "test:probe": "node --test tests/node/probe.test.js",
+    "test:aube": "node --test tests/node/aube-1645.test.js",
+    "test:measure": "node --test tests/node/measure.test.js",
+    "test:pitchfork": "node --test tests/node/pitchfork-basic.test.js",
+    "test:browser": "playwright test tests/browser/probe.spec.ts tests/browser/aube-1645.spec.ts tests/browser/pitchfork-basic.spec.ts",
+    "serve": "node scripts/serve.js",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.tests.json && node .build/scripts/emit.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test:unit": "node --test --test-concurrency=1 --test-skip-pattern=\"real Node |real generated loader mutation\" tests/package/errors.test.js tests/package/public.test.js tests/package/validation.test.js tests/package/state.test.js tests/package/protocol.test.js tests/package/lifecycle.test.js tests/package/core.test.js tests/package/guest-io.test.js tests/package/worker-execution.test.js tests/package/node-api.test.js tests/package/node-worker.test.js tests/package/runner-ready.test.js tests/package/types.test.js tests/package/tooling.test.js tests/package/coverage.test.js tests/guest-distribution/*.test.js tests/terrarium/adapter.test.js tests/terrarium/coverage.test.js",
+    "test:e2e": "npm run build && playwright test",
+    "pretest": "npm run build",
+    "test": "npm run test:unit",
+    "preserve": "npm run build",
+    "test:integration": "npm run build && node --test --test-concurrency=1 tests/package/*.test.js tests/terrarium/*.test.js"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
     "@playwright/test": "1.63.0",
-    "typescript": "7.0.2",
-    "eslint": "10.12.0",
+    "@types/istanbul-lib-coverage": "^2.0.6",
+    "@types/istanbul-lib-instrument": "^1.7.8",
+    "@types/node": "^24.19.1",
+    "istanbul-lib-coverage": "3.2.2",
     "istanbul-lib-instrument": "6.0.3",
-    "istanbul-lib-coverage": "3.2.2"
+    "typescript": "7.0.2"
   }
 }

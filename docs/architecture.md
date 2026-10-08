@@ -8,11 +8,11 @@ formicarium は、改変していない x86-64 Linux のバイナリ（static-mu
 
 ```mermaid
 flowchart TB
-  subgraph Page["ブラウザのページ（runtime/web/app.mjs）"]
-    UI["URL の検証（sessions.mjs の許可リスト）と結果の表示"]
+  subgraph Page["ブラウザのページ（runtime/web/app.ts）"]
+    UI["URL の検証（sessions.ts の許可リスト）と結果の表示"]
   end
-  subgraph RW["実行用 Worker（runtime/web/worker.mjs）"]
-    IO["guest-io.mjs：ゲストと入力の配置、出力の取得、手順の実行"]
+  subgraph RW["実行用 Worker（runtime/web/worker.ts）"]
+    IO["guest-io.ts：ゲストと入力の配置、出力の取得、手順の実行"]
     FS["Emscripten の FS（MEMFS ＋ hard link と flock の拡張）"]
   end
   subgraph Core["blink の wasm（dist/blink/、手順ごとに新しいインスタンス）"]
@@ -21,7 +21,7 @@ flowchart TB
   end
   UI -- "postMessage（要求と出力）" --> RW
   IO --> FS
-  RW -- "createModule（runtime/core.mjs が場所と引数を知る）" --> Core
+  RW -- "createModule（runtime/core.ts が場所と引数を知る）" --> Core
   Main -- "ファイル操作を代行依頼" --> FS
   Pool -- "ファイル操作を代行依頼" --> FS
 ```
@@ -30,20 +30,20 @@ flowchart TB
 仮想ファイルシステムにゲストと入力を置いてから実行する。blink はゲストのメインスレッドを pthread で動かし（`PROXY_TO_PTHREAD`）、
 ゲストが `clone` したスレッドは pthread 用の Worker で動く。ファイルシステムは実行用 Worker の側にあり、
 pthread からのファイル操作はそこへの代行依頼になる。Node.js では、ページと実行用 Worker の代わりに
-`runtime/node/run.mjs`（CLI）と `worker_threads` の Worker（`runtime/node/worker.mjs`）が同じ役割を持つ。
+`runtime/node/run.ts`（CLI）と `worker_threads` の Worker（`runtime/node/worker.ts`）が同じ役割を持つ。
 
 ## 層と依存の向き
 
 | 層 | 場所 | 役割 | コアへの依存 |
 |---|---|---|---|
-| コアの記述子 | `runtime/core.mjs` | ビルド物の場所と、コアに渡すコマンドラインの組み立て | ここだけがコアを知る |
-| 入出力の共通部 | `runtime/guest-io.mjs`、`runtime/session.mjs` | ゲストと入力の配置、stdout・stderr・終了コードの取得、手順の実行と書き起こし | なし（Emscripten の FS API だけ） |
+| コアの記述子 | `runtime/core.ts` | ビルド物の場所と、コアに渡すコマンドラインの組み立て | ここだけがコアを知る |
+| 入出力の共通部 | `runtime/guest-io.ts`、`runtime/session.ts` | ゲストと入力の配置、stdout・stderr・終了コードの取得、手順の実行と書き起こし | なし（Emscripten の FS API だけ） |
 | Node.js の実行環境 | `runtime/node/` | CLI、`worker_threads` の Worker | なし |
-| ブラウザの実行環境 | `runtime/web/`、`scripts/serve.mjs` | ページ、実行用 Worker、許可リスト、COOP/COEP（サーバーか service worker） | なし |
+| ブラウザの実行環境 | `runtime/web/`、`scripts/serve.ts` | ページ、実行用 Worker、許可リスト、COOP/COEP（サーバーか service worker） | なし |
 | コア | `blink.lock` → `.vendor/blink` → `dist/blink/` | x86-64 の解釈実行と Linux のシステムコールのエミュレート | — |
 
 コアは「wasm モジュール 1 つ＋起動用の JS（Emscripten の MODULARIZE 形式）」という境界でだけ扱う。将来、コアを
-paludarium（Rust 版 blink）に置き換えるときは、`runtime/core.mjs` に記述子を足し、`dist/` にビルド物を置けばよい。
+paludarium（Rust 版 blink）に置き換えるときは、`runtime/core.ts` に記述子を足し、`dist/` にビルド物を置けばよい。
 
 ## コア（blink の fork）で足したもの
 

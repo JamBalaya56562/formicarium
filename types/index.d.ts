@@ -6,10 +6,26 @@ export interface Assets {
 }
 export type FsEntry =
   | { path: string; type: 'dir'; mode: number }
-  | { path: string; type: 'file'; mode: number; inodeId: string; data: Uint8Array }
+  | {
+      path: string;
+      type: 'file';
+      mode: number;
+      inodeId: string;
+      data: Uint8Array;
+    }
   | { path: string; type: 'symlink'; target: string };
-export interface SessionOptions { assets?: Assets; cwd?: string; home?: string; entries?: readonly FsEntry[]; }
-export interface OutputChunk { runId: string; sequence: number; stream: 'stdout' | 'stderr'; bytes: Uint8Array; }
+export interface SessionOptions {
+  assets?: Assets;
+  cwd?: string;
+  home?: string;
+  entries?: readonly FsEntry[];
+}
+export interface OutputChunk {
+  runId: string;
+  sequence: number;
+  stream: 'stdout' | 'stderr';
+  bytes: Uint8Array;
+}
 export interface RunOptions {
   guest: Uint8Array;
   args?: readonly string[];
@@ -18,10 +34,37 @@ export interface RunOptions {
   signal?: AbortSignal;
   onOutput?: (chunk: OutputChunk) => void;
 }
-export interface RunResult { runId: string; exitCode: number; stdout: Uint8Array; stderr: Uint8Array; elapsedMs: number; }
-export type ErrorCode = 'INVALID_INPUT' | 'ASSET_LOAD' | 'UNSUPPORTED_ENV' | 'CORE_INIT' | 'EXECUTION' | 'SNAPSHOT' | 'TIMEOUT' | 'ABORTED' | 'BUSY' | 'DISPOSED' | 'NOT_FOUND' | 'NOT_FILE';
+export interface RunResult {
+  runId: string;
+  exitCode: number;
+  stdout: Uint8Array;
+  stderr: Uint8Array;
+  elapsedMs: number;
+}
+export type ErrorCode =
+  | 'INVALID_INPUT'
+  | 'ASSET_LOAD'
+  | 'UNSUPPORTED_ENV'
+  | 'CORE_INIT'
+  | 'EXECUTION'
+  | 'SNAPSHOT'
+  | 'TIMEOUT'
+  | 'ABORTED'
+  | 'BUSY'
+  | 'DISPOSED'
+  | 'NOT_FOUND'
+  | 'NOT_FILE';
 export class ExecutionError extends Error {
-  constructor(code: ErrorCode, message?: string, details?: { runId?: string; stdout?: Uint8Array; stderr?: Uint8Array; cause?: unknown });
+  constructor(
+    code: ErrorCode,
+    message?: string,
+    details?: {
+      runId?: string;
+      stdout?: Uint8Array;
+      stderr?: Uint8Array;
+      cause?: unknown;
+    },
+  );
   code: ErrorCode;
   runId?: string;
   stdout: Uint8Array;

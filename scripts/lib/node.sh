@@ -30,23 +30,23 @@ find_node() {
 }
 
 # usage: load_session_info <session>
-# scripts/session-info.mjs の出力（KEY='value' の行。値は単引用符でエスケープ済み）を読み、
+# scripts/session-info.js の出力（KEY='value' の行。値は単引用符でエスケープ済み）を読み、
 # SESSION・GUEST・GUEST_PATH・SCRIPT・PROJECT_BASE・PROJECT_ROOT・CWD・BASELINE・GUEST_ENV と、
-# その元の文字列 SESSION_INFO を設定する。失敗すれば session-info.mjs の終了コードを返す。
+# その元の文字列 SESSION_INFO を設定する。失敗すれば session-info.js の終了コードを返す。
 load_session_info() {
   local session=$1 node status
   node=$(find_node) || return 1
   set +e
-  SESSION_INFO=$("$node" "$_formicarium_node_root/scripts/session-info.mjs" "$session")
+  SESSION_INFO=$("$node" "$_formicarium_node_root/scripts/session-info.js" "$session")
   status=$?
   set -e
   if [ "$status" != 0 ]; then
-    echo "error: 手順 $session の設定を読めませんでした（scripts/session-info.mjs の終了コード $status）" >&2
+    echo "error: 手順 $session の設定を読めませんでした（scripts/session-info.js の終了コード $status）" >&2
     return "$status"
   fi
   eval "$SESSION_INFO"
   if [ "${SESSION:-}" != "$session" ] || [ -z "${GUEST:-}" ] || [ -z "${BASELINE:-}" ]; then
-    echo "error: scripts/session-info.mjs の出力が不正です" >&2
+    echo "error: scripts/session-info.js の出力が不正です" >&2
     return 1
   fi
 }

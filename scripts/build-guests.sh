@@ -6,8 +6,8 @@
 #   pitchfork : jdx/pitchfork（公式リポジトリ）の PITCHFORK_REF（既定 v2.29.0）。ソースは変えない（FR1.1）
 # 取得したコミットは dist/guests/<name>.commit に記録する（FR1.2）。
 # ビルド後、dist/guests/ にあるすべてのゲストが x86-64 の static な ELF であることを確かめる。
-# runtime/registry.mjs の GUESTS にあるゲストは、すべて下の guests に含める
-# （tests/node/runner.test.mjs で確かめる）。
+# runtime/registry.js の GUESTS にあるゲストは、すべて下の guests に含める
+# （tests/node/runner.test.js で確かめる）。
 # コンテナは scripts/lib/container.sh の規則で選ぶ（wslc を優先し、使えなければ docker）。
 # cargo のレジストリとビルド先は名前付きボリュームに置く（2 回目以降を速くするため）。
 set -euo pipefail

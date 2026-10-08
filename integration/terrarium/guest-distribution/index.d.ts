@@ -1,6 +1,12 @@
 export type FsEntry =
   | { path: string; type: 'dir'; mode: number }
-  | { path: string; type: 'file'; mode: number; inodeId: string; data: Uint8Array }
+  | {
+      path: string;
+      type: 'file';
+      mode: number;
+      inodeId: string;
+      data: Uint8Array;
+    }
   | { path: string; type: 'symlink'; target: string };
 export interface GuestSelection {
   tool: 'aube' | 'pitchfork';
@@ -24,4 +30,6 @@ export interface SelectedGuest {
   entries: readonly FsEntry[];
   cwd: string;
 }
-export declare function resolveGuest(input: GuestSelection): Promise<SelectedGuest>;
+export declare function resolveGuest(
+  input: GuestSelection,
+): Promise<SelectedGuest>;

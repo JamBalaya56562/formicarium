@@ -3,7 +3,11 @@
   "generatedAt": "2026-10-04T00:00:00.000Z",
   "runs": [
     {
-      "environment": { "kind": "browser", "name": "firefox", "os": "Windows_NT 10.0.26300 x64" },
+      "environment": {
+        "kind": "browser",
+        "name": "firefox",
+        "os": "Windows_NT 10.0.26300 x64"
+      },
       "trial": 1,
       "trials": 1,
       "milliseconds": { "version": 900, "install": 4000, "list": 800 },

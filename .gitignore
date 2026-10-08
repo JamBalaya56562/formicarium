@@ -2,6 +2,15 @@
 /.claude/
 /.codex/
 /.agents/
+/.build/
+/.artifacts/
+/runtime/**/*.js
+/scripts/**/*.js
+/integration/**/*.js
+/tests/**/*.js
+**/*.js.map
+/test-results/
+/playwright-report/
 
 # BEGIN AI-DLC:gitignore
 # Logs

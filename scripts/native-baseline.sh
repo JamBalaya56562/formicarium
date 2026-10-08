@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # usage: bash scripts/native-baseline.sh [<session>] [--check-reproducible]
-# 手順（runtime/registry.mjs の SESSIONS。既定は aube-1645）を、static-musl のゲスト
+# 手順（runtime/registry.js の SESSIONS。既定は aube-1645）を、static-musl のゲスト
 # （dist/guests/<guest>）で x86-64 Linux のコンテナ上で native に実行し、書き起こしを
 # 表の baseline（fixtures/baseline/<session>.native.txt）に保存する（FR5.1、FR7.1 の基準値）。
 #
-# 手順の設定は scripts/session-info.mjs から得る（FR4.1。表を読み、名前と手順ファイルを検証する）。
-# 書き起こしの形式は runtime/session.mjs と同じ：
+# 手順の設定は scripts/session-info.js から得る（FR4.1。表を読み、名前と手順ファイルを検証する）。
+# 書き起こしの形式は runtime/session.js と同じ：
 #   $ <command> / <stdout> / [exit <code>]   （stderr は含めない）
 # 作業ディレクトリと HOME は、ブラウザ・Node.js での実行と同じ（表の cwd と /root）にする。
 # 受け付けるコマンドは <guest> ...、rm -rf <path>、cat <path>。sh -c で実行する。
@@ -56,7 +56,7 @@ load_session_info "$session" || info_status=$?
 [ -d "$root/$PROJECT_BASE" ] || { echo "error: $root/$PROJECT_BASE がありません" >&2; exit 1; }
 image=${FORMICARIUM_NATIVE_IMAGE:-busybox:latest}
 
-# コンテナで実行する本体。先頭に session-info.mjs の出力（変数の定義）を付けて渡す。
+# コンテナで実行する本体。先頭に session-info.js の出力（変数の定義）を付けて渡す。
 # 変数はシェル変数のままで export しない（ゲストの環境は GUEST_ENV だけ）。
 body='
   mv /work /in
@@ -64,7 +64,7 @@ body='
   cp -a "/in/$PROJECT_BASE/." "$PROJECT_ROOT/"
   cp "/in/$GUEST_PATH" "/usr/local/bin/$GUEST"
   chmod 0755 "/usr/local/bin/$GUEST"
-  # runtime/registry.mjs の env と同じ（aube は registry への更新確認を止める）
+  # runtime/registry.js の env と同じ（aube は registry への更新確認を止める）
   export HOME=/root PATH=/usr/local/bin:/usr/bin:/bin $GUEST_ENV
   cd "$CWD"
   out="/out/$SESSION.native.txt"
@@ -85,7 +85,7 @@ body='
     {
       echo "\$ $cmd"
       cat /tmp/stdout
-      # 最終行に改行がなければ足す（runtime/session.mjs と同じ扱い）
+      # 最終行に改行がなければ足す（runtime/session.js と同じ扱い）
       if [ -s /tmp/stdout ] && [ "$(tail -c 1 /tmp/stdout | od -An -c | tr -d " ")" != "\n" ]; then echo; fi
       echo "[exit $code]"
     } >> "$out"

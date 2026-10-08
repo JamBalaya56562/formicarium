@@ -2,19 +2,20 @@
   "version": 1,
   "threshold": 80,
   "files": [
-    "runtime/public.mjs",
-    "runtime/errors.mjs",
-    "runtime/validation.mjs",
-    "runtime/state.mjs",
-    "runtime/lifecycle.mjs",
-    "runtime/protocol.mjs",
-    "runtime/worker-execution.mjs",
-    "runtime/core.mjs",
-    "runtime/guest-io.mjs",
-    "runtime/node/api.mjs",
-    "runtime/node/package-worker.mjs",
-    "runtime/web/api.mjs",
-    "runtime/web/package-worker.mjs"
+    "runtime/contracts.js",
+    "runtime/public.js",
+    "runtime/errors.js",
+    "runtime/validation.js",
+    "runtime/state.js",
+    "runtime/lifecycle.js",
+    "runtime/protocol.js",
+    "runtime/worker-execution.js",
+    "runtime/core.js",
+    "runtime/guest-io.js",
+    "runtime/node/api.js",
+    "runtime/node/package-worker.js",
+    "runtime/web/api.js",
+    "runtime/web/package-worker.js"
   ],
   "node": {
     "host": 1,
@@ -25,11 +26,7 @@
       "realConsumer": 18
     }
   },
-  "browserProjects": [
-    "chromium",
-    "firefox",
-    "webkit"
-  ],
+  "browserProjects": ["chromium", "firefox", "webkit"],
   "browserCases": {
     "browser API owns copied filesystem seed and reset without core startup": 0,
     "browser session rejects malformed roots, assets and seed before ownership changes": 0,

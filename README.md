@@ -69,13 +69,13 @@ Node.js の Worker と、COOP/COEP 付きのブラウザページ（Chromium・F
 
 | 層 | 場所 | コアへの依存 |
 |---|---|---|
-| コアの記述子 | `runtime/core.mjs` | ここだけがコアを知る（ビルド物の場所、コマンドラインの組み立て方） |
-| 入出力の共通部 | `runtime/guest-io.mjs`、`runtime/session.mjs` | なし（Emscripten の FS API だけを使う） |
+| コアの記述子 | `runtime/core.js` | ここだけがコアを知る（ビルド物の場所、コマンドラインの組み立て方） |
+| 入出力の共通部 | `runtime/guest-io.js`、`runtime/session.js` | なし（Emscripten の FS API だけを使う） |
 | Node.js の実行環境 | `runtime/node/` | なし |
-| ブラウザの実行環境 | `runtime/web/`、`scripts/serve.mjs` | なし |
+| ブラウザの実行環境 | `runtime/web/`、`scripts/serve.js` | なし |
 | コア（blink の fork） | `blink.lock` → `.vendor/blink` → `dist/blink/` | — |
 
-置き換えるときは、`runtime/core.mjs` に paludarium の記述子を足し、`dist/` にそのビルド物を置く。
+置き換えるときは、`runtime/core.ts` に paludarium の記述子を足し、`dist/` にそのビルド物を置く。
 
 ## 前提ツール
 
@@ -98,8 +98,23 @@ blink の wasm ビルドは、既定ではコンテナ（`emscripten/emsdk:<ロ�
 
 すべてプロジェクトのルートで実行する。
 
+実装・開発スクリプト・テスト・Playwright 設定は TypeScript で管理する。`npm run build` は型チェック後、生成した `.js` をソースと同じディレクトリに配置する。生成物は jj に記録しない。生成された blink loader は元の形式を維持する。`coi-sw.ts` は classic service worker として登録するため、ビルドでは型だけを除去し ESM の export を加えない。
+
 ```bash
-npm install
+npm ci
+npm run check       # Biome による lint・format・import の検査
+npm run typecheck   # 実装とテストの strict 型チェック
+npm test            # 外部 wasm/guest 資産を必要としない単体テスト
+npm run check:fix   # Biome の安全な自動修正
+```
+
+Windows では POSIX permission bits の検査だけを skip する。同じ検査を Linux で実行することで権限の条件を確認する。外部の実配布資産に関するテストも、資産を未準備のときは未検証として表示する。
+
+`npm run test:integration` は wasm・guest・検証済みの npm アーカイブ・独立した consumer を使うため、各テストの資産と環境変数を準備してから実行する。Playwright は `.spec.ts` を読み、3 ブラウザ・1 worker・再試行なしを維持する。失敗時には trace と screenshot を保存する。
+
+```bash
+npm ci
+npm run build                    # TypeScript を JavaScript にコンパイルする
 bash scripts/build-blink-wasm.sh   # blink.lock のコミットを取得し、dist/blink/blink.mjs と blink.wasm を作る
 bash scripts/build-guests.sh       # dist/guests/ に probe・hello・exit3・aube（v2.6.1）・pitchfork（v2.29.0）を作る（aube は 1 時間以上かかる）
 bash scripts/native-baseline.sh    # fixtures/baseline/aube-1645.native.txt（native の基準値）を作る
@@ -119,14 +134,14 @@ npx playwright install chromium firefox webkit
     `patches/pitchfork-2.29.0-musl-ioctl.patch` を当てる（動作は変わらない）
   - 当てたパッチの sha256、UI に使った node の版、UI の成果物の sha256 を `dist/guests/pitchfork.build-info` に記録する
   ビルド後、`dist/guests/` のすべてのゲストが static な x86-64 の ELF であること（`PT_INTERP` がないこと）を確かめる。
-- ゲスト・環境変数・手順の一覧は `runtime/registry.mjs` の 1 か所にある。ゲストを足すときは、そこに 1 行足し、
+- ゲスト・環境変数・手順の一覧は `runtime/registry.ts` の 1 か所にある。ゲストを足すときは、そこに 1 行足し、
   `build-guests.sh` の対象・fixture・基準値・テストを足す（[`docs/terrarium-integration.md`](docs/terrarium-integration.md) の 3 節）。
 - `bash scripts/native-baseline.sh [<手順>] [--check-reproducible]` は、表の手順（既定は `aube-1645`）の基準値を作る。
-  手順の設定は `node scripts/session-info.mjs <手順>` で表から読む（node は PATH、`FORMICARIUM_NODE`、mise の順に探す）。
+  手順の設定は `node scripts/session-info.js <手順>` で表から読む（node は PATH、`FORMICARIUM_NODE`、mise の順に探す）。
 - wasm メモリの上限は 1 GB（`-sMAXIMUM_MEMORY=1GB`）。WebKit がインスタンスごとに上限までメモリを確保するため、
   4 GB から下げた。1 GB を超えるメモリを使うゲストは動かない。
 - `dist/blink/build-info.json` の `blinkSourceDirty` が `true` のビルド（未公開の修正を含む）では、
-  `tests/node/build.test.mjs` の 1 件が意図どおり失敗する。
+  `tests/node/build.test.js` の 1 件が意図どおり失敗する。
 
 ### fork を直すとき
 
@@ -142,12 +157,12 @@ npx playwright install chromium firefox webkit
 
 ```bash
 # Node.js の Worker で実行する。終了コードはゲストのもの（見つからなければ 127）
-node runtime/node/run.mjs dist/guests/probe
-node runtime/node/run.mjs --copy-in fixtures/aube-local-deps:/work --cwd /work/app \
+node runtime/node/run.js dist/guests/probe
+node runtime/node/run.js --copy-in fixtures/aube-local-deps:/work --cwd /work/app \
   --env AUBE_NO_UPDATE_CHECK=1 dist/guests/aube list
 
 # ブラウザで実行する（COOP/COEP 付きの開発用サーバー）
-node scripts/serve.mjs --port 8787
+node scripts/serve.js --port 8787
 #   http://127.0.0.1:8787/runtime/web/index.html?guest=probe
 #   http://127.0.0.1:8787/runtime/web/index.html?session=aube-1645
 #   http://127.0.0.1:8787/runtime/web/index.html?session=pitchfork-basic
@@ -160,30 +175,30 @@ node scripts/serve.mjs --port 8787
 ブラウザでは URL に `&core-flag=-s` を付ける（`-e` は自動で付く）。
 
 Git Bash では、`--copy-in fixtures/...:/work` の `/work` が Windows のパスに書き換えられてしまう。
-`MSYS_NO_PATHCONV=1 node runtime/node/run.mjs ...` のように、変換を止めて実行する。
+`MSYS_NO_PATHCONV=1 node runtime/node/run.js ...` のように、変換を止めて実行する。
 
-ブラウザの実行用 Worker（`runtime/web/worker.mjs`）は、コアを読み込む前に `Atomics.waitAsync` を無効にしている。
+ブラウザの実行用 Worker（`runtime/web/worker.js`）は、コアを読み込む前に `Atomics.waitAsync` を無効にしている。
 WebKit で Emscripten の代行依頼の通知が取りこぼされ、ゲスト全体が止まることがあったため（`docs/results/failures.md` の L-3）。
 
 aube は `--version` や `install` のたびに registry へ更新の確認をしに行く。ブラウザにはネットワークがなく、条件を
-native の基準値とそろえるため、`AUBE_NO_UPDATE_CHECK=1` で止めて実行する（`runtime/registry.mjs` の `GUESTS.aube.env`）。
+native の基準値とそろえるため、`AUBE_NO_UPDATE_CHECK=1` で止めて実行する（`runtime/registry.js` の `GUESTS.aube.env`）。
 
 手順ファイル（`fixtures/sessions/*.txt`）は、`<ゲスト> ...`、`rm -rf <相対パス>`、`cat <相対パス>` の 3 つを受け付ける。
 引数は native の基準値（`sh -c`）と同じ規則で分ける（単引用符、二重引用符、`\`）。`|`、`;`、`$`、`*` など、sh が
-分割以外の意味に解釈する文字は、結果が食い違わないように拒否する（`runtime/session.mjs` の `splitShellWords`）。
+分割以外の意味に解釈する文字は、結果が食い違わないように拒否する（`runtime/session.js` の `splitShellWords`）。
 
 ## テスト
 
 ```bash
-node --test tests/node/build.test.mjs      # FR1：fork の固定とビルド（pitchfork が static な ELF であることも）
-node --test tests/node/runner.test.mjs     # FR2.1：Node.js のランナー、ゲストと手順の表、入口の検証
-node --test tests/node/session.test.mjs    # 手順の解釈（引数の分割、cat）。ビルド物なしで実行できる
-node --test tests/node/probe.test.mjs      # FR3・FR4・FR5（Node.js）
-node --test tests/node/aube-1645.test.mjs  # FR7.1（Node.js）
-node --test tests/node/measure.test.mjs    # FR6：計測結果の形式
-node --test tests/node/pitchfork-basic.test.mjs   # pitchfork-basic（Node.js）
-npx playwright test tests/browser/probe.spec.mjs tests/browser/aube-1645.spec.mjs   # FR2.2・FR5.2・FR7.1
-npx playwright test tests/browser/pitchfork-basic.spec.mjs   # pitchfork-basic（Chromium・Firefox・WebKit）
+node --test tests/node/build.test.js      # FR1：fork の固定とビルド（pitchfork が static な ELF であることも）
+node --test tests/node/runner.test.js     # FR2.1：Node.js のランナー、ゲストと手順の表、入口の検証
+node --test tests/node/session.test.js    # 手順の解釈（引数の分割、cat）。ビルド物なしで実行できる
+node --test tests/node/probe.test.js      # FR3・FR4・FR5（Node.js）
+node --test tests/node/aube-1645.test.js  # FR7.1（Node.js）
+node --test tests/node/measure.test.js    # FR6：計測結果の形式
+node --test tests/node/pitchfork-basic.test.js   # pitchfork-basic（Node.js）
+npx playwright test tests/browser/probe.spec.js tests/browser/aube-1645.spec.js   # FR2.2・FR5.2・FR7.1
+npx playwright test tests/browser/pitchfork-basic.spec.js   # pitchfork-basic（Chromium・Firefox・WebKit）
 ```
 
 pitchfork のテストの前提は `bash scripts/build-guests.sh pitchfork` と
@@ -204,14 +219,14 @@ probe には、合格判定の 8 項目のほかに、引数で個別に指定�
 繰り返しの確認（NFR1）は次のとおり。
 
 ```bash
-npx playwright test tests/browser/probe.spec.mjs tests/browser/aube-1645.spec.mjs --repeat-each=3
-node --test tests/node/probe.test.mjs tests/node/aube-1645.test.mjs   # 3 回
+npx playwright test tests/browser/probe.spec.js tests/browser/aube-1645.spec.js --repeat-each=3
+node --test tests/node/probe.test.js tests/node/aube-1645.test.js   # 3 回
 ```
 
 ## 計測
 
 ```bash
-node scripts/measure-aube.mjs --trials 10   # docs/results/aube-timings.json と docs/results/README.md を書く
+node scripts/measure-aube.js --trials 10   # docs/results/aube-timings.json と docs/results/README.md を書く
 ```
 
 ほかの重い処理（コンテナでのビルドなど）を止めてから計測する。並行負荷で値が大きく変わる。
@@ -226,7 +241,7 @@ OUTCOMES.md           PoC の引き継ぎ文書
 blink.lock            fork の URL とコミット
 guest/probe/          static-musl x86-64 のゲスト（probe・hello・exit3）
 fixtures/             aube #1645 と pitchfork の入力（terrarium から取り込み）、手順、native の基準値
-runtime/              コアに依存しない実行環境（Node.js・ブラウザ）。ゲストと手順の表は runtime/registry.mjs
+runtime/              コアに依存しない実行環境（Node.js・ブラウザ）。ゲストと手順の表は runtime/registry.js
 scripts/              ビルド・取得・基準値・計測・開発用サーバー
 tests/                node --test と Playwright のテスト
 docs/                 アーキテクチャの要約、設計上の決定（decisions/）、非機能要件のまとめ、ライセンスの確認、計測値、通らなかった項目と直したもの、JIT の判断材料

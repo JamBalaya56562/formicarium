@@ -25,6 +25,12 @@ In PowerShell quote revision expressions containing `@`, such as `jj log -r '@'`
 Resolve mise-managed executables from their installation directories rather than
 using `mise exec` or shims; declared tasks still use `mise run <task>`.
 
+Author runtime modules, scripts, tests, and supported configuration files in
+TypeScript. Use Biome for linting, formatting, and import organization. Run
+`npm run build` before executing generated `.js` files, and use `npm run check`
+and `npm run typecheck` before submitting changes. Do not edit generated `.js`
+files. TypeScript uses strict NodeNext resolution and checked indexed access.
+
 ## Verification
 
 Run checks appropriate to the affected files and record exact commands, results,
@@ -35,7 +41,7 @@ For documentation or GitHub configuration changes, check syntax, referenced
 paths, and the final diff; a full emulator rebuild is unnecessary.
 
 Core-specific changes belong in the blink fork and must remain isolated behind
-`runtime/core.mjs`. See the ADRs and README.md for the core contribution process.
+`runtime/core.ts`. See the ADRs and README.md for the core contribution process.
 
 ## Pull requests
 
