@@ -15,6 +15,7 @@ import {
   validatePayloadInventory,
 } from '../../scripts/ci/bundle.js';
 import {
+  createFreshResultsDirectory,
   hash,
   type InputManifest,
   parseTestSummary,
@@ -26,6 +27,19 @@ import {
   validateWorkflow,
   verifyPins,
 } from '../../scripts/ci/verification.js';
+
+test('fresh results creation supports a clean checkout and refuses reuse', async () => {
+  const root = await mkdtemp(resolve(tmpdir(), 'ci-fresh-results-'));
+  const output = resolve(root, '.artifacts/ci-results');
+  try {
+    await createFreshResultsDirectory(output);
+    await writeFile(resolve(output, 'original.txt'), 'preserved');
+    await assert.rejects(createFreshResultsDirectory(output), { code: 'EEXIST' });
+    assert.equal(await readFile(resolve(output, 'original.txt'), 'utf8'), 'preserved');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 const context = {
   repository: 'Marukome0743/formicarium',

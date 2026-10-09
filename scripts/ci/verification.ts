@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
-import { lstat, readFile, realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { lstat, mkdir, readFile, realpath } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+
+export async function createFreshResultsDirectory(output: string) {
+  await mkdir(dirname(output), { recursive: true });
+  await mkdir(output);
+}
 
 export const REQUIRED_CHECKS = Object.freeze([
   'release',

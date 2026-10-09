@@ -17,6 +17,7 @@ import {
 import { validatePayloadInventory } from './bundle.js';
 import {
   type CheckResult,
+  createFreshResultsDirectory,
   hash,
   type InputManifest,
   parseTestSummary,
@@ -97,7 +98,7 @@ async function command(
   return result;
 }
 export async function runVerification() {
-  await mkdir(output); // Fresh output only; never reuse an earlier successful generation.
+  await createFreshResultsDirectory(output); // Fresh output only; never reuse an earlier successful generation.
   const inputRoot = resolve(root, '.ci-inputs');
   const manifest = JSON.parse(
     await readFile(resolve(inputRoot, 'manifest.json'), 'utf8'),
