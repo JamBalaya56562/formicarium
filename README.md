@@ -1,7 +1,7 @@
 # formicarium
 
-Contribution and community guidance: [CONTRIBUTING.md](CONTRIBUTING.md),
-[Code of Conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md).
+Contribution and community guidance: [CONTRIBUTING.md](https://github.com/aletheia-works/formicarium/blob/main/CONTRIBUTING.md),
+[Code of Conduct](https://github.com/aletheia-works/formicarium/blob/main/CODE_OF_CONDUCT.md), and [security policy](https://github.com/aletheia-works/formicarium/blob/main/SECURITY.md).
 
 An open-source user-mode x86 Linux emulator for the browser, in the spirit
 of CheerpX: run unmodified Linux binaries in WebAssembly, without booting a

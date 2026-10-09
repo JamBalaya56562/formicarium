@@ -155,6 +155,12 @@ for(const data of pending)if(data.type!=='coverage-bootstrap')self.dispatchEvent
   return { metadata, layout, digests, bridge };
 }
 
+export async function copySharedTestHelpers(root: string, out: string) {
+  await cp(resolve(root, 'tests/shared'), resolve(out, 'tests/shared'), {
+    recursive: true,
+  });
+}
+
 export async function prepareCoverage({
   source,
   out,
@@ -169,6 +175,7 @@ export async function prepareCoverage({
   await cp(resolve(root, 'tests/package'), resolve(out, 'tests/package'), {
     recursive: true,
   });
+  await copySharedTestHelpers(root, out);
   await cp(resolve(root, 'scripts/package'), resolve(out, 'scripts/package'), {
     recursive: true,
   });

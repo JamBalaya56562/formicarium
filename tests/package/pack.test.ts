@@ -89,3 +89,21 @@ test('license/notices/types/readme are nonempty and guests stay external', () =>
     ),
   );
 });
+
+test('packed README community links resolve to the upstream repository', () => {
+  const readme = read('README.md').toString('utf8');
+  for (const filename of [
+    'CONTRIBUTING.md',
+    'CODE_OF_CONDUCT.md',
+    'SECURITY.md',
+  ]) {
+    const links = [...readme.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)]
+      .map((match) => match[1])
+      .filter((target) => target?.endsWith(filename));
+    assert.deepEqual(
+      links,
+      [`https://github.com/aletheia-works/formicarium/blob/main/${filename}`],
+      `${filename} is outside the tarball and needs its upstream URL`,
+    );
+  }
+});
