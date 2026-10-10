@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import type { ExecFileSyncOptions } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +51,9 @@ async function fetchBundle(out: string) {
   requireCondition(new Set(members).size === members.length, 'release bundle duplicate path');
   execFileSync('tar', ['-xzf', path, '-C', resolve(out)]);
 }
-export async function publicationCli(args: string[]) {
+export type PublicationExecutor = (executable: string, args: readonly string[], options: ExecFileSyncOptions) => void;
+const executePublication: PublicationExecutor = (executable, args, options) => { execFileSync(executable, [...args], options); };
+export async function publicationCli(args: string[], executor: PublicationExecutor = executePublication) {
   const [command, ...paths] = args;
   if (command === 'prepare' && paths.length === 4) return preparePublication({ originalManifestPath: paths[0]!, originalTarballPath: paths[1]!, out: paths[2]!, identity: await json(paths[3]!) as PublicationIdentity });
   if (command === 'validate' && paths.length === 3) return validatePublication(await json(paths[0]!), await json(paths[1]!), paths[2]!);
@@ -64,12 +67,12 @@ export async function publicationCli(args: string[]) {
       const npmConfig = `${resolve(paths[0]!)}.empty-npmrc`;
       await writeFile(npmConfig, '', { flag: 'wx' });
       const cleanEnvironment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(npm_config_|node_auth_token$|npm_token$)/i.test(key)));
-      execFileSync('npm', ['publish', join(resolve(paths[0]!), 'candidate.tgz'), '--access', 'public', '--registry', 'https://registry.npmjs.org/', '--tag', result.request.identity.distTag, '--ignore-scripts'], { cwd: resolve(paths[0]!), stdio: 'inherit', env: { ...cleanEnvironment, NPM_CONFIG_USERCONFIG: npmConfig, NPM_CONFIG_GLOBALCONFIG: '/dev/null', NPM_CONFIG_PROVENANCE: 'true' } });
+      executor('npm', ['publish', join(resolve(paths[0]!), 'candidate.tgz'), '--access', 'public', '--registry', 'https://registry.npmjs.org/', '--tag', result.request.identity.distTag, '--ignore-scripts'], { cwd: resolve(paths[0]!), stdio: 'inherit', env: { ...cleanEnvironment, NPM_CONFIG_USERCONFIG: npmConfig, NPM_CONFIG_GLOBALCONFIG: '/dev/null', NPM_CONFIG_PROVENANCE: 'true' } });
       return { outcome: 'publish-command-completed-readback-required' };
     }
     requireCondition(process.env.AIDLC_RELEASE_OPERATION === 'release', 'isolated release job required');
     requireCondition(result.request.approvals.some(a => a.operation === 'create-github-release' && a.target === result.request.identity.repository && a.candidateId === result.request.candidate.candidateId && a.version === result.request.identity.version && a.sourceCommit === result.request.identity.sourceCommit && a.humanInput.trim() && Number.isFinite(Date.parse(a.approvedAt))), 'GitHub Release approval missing');
-    execFileSync('gh', ['release', 'create', result.request.identity.tag, join(resolve(paths[0]!), 'candidate.tgz'), '--repo', result.request.identity.repository, '--verify-tag', '--title', `formicarium ${result.request.identity.version}`, '--notes', `Reviewed package SHA256: ${result.archive.tarball.sha256}`, ...(result.request.identity.distTag === 'next' ? ['--prerelease'] : [])], { stdio: 'inherit' });
+    executor('gh', ['release', 'create', result.request.identity.tag, join(resolve(paths[0]!), 'candidate.tgz'), '--repo', result.request.identity.repository, '--verify-tag', '--title', `formicarium ${result.request.identity.version}`, '--notes', `Reviewed package SHA256: ${result.archive.tarball.sha256}`, ...(result.request.identity.distTag === 'next' ? ['--prerelease'] : [])], { stdio: 'inherit' });
     return { outcome: 'release-command-completed-readback-required' };
   }
   throw new Error('usage: prepare <old-manifest> <old.tgz> <new-out> <identity>; validate <publication-manifest> <identity> <tgz>; plan <evidence-root> <request>; fetch|gate|publish|release <bundle-root>');

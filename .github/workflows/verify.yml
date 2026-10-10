@@ -25,6 +25,11 @@ jobs:
           bun-version: '1.4.2'
       - run: npm ci --ignore-scripts
       - run: node node_modules/typescript/bin/tsc -p tsconfig.json && node node_modules/typescript/bin/tsc -p tsconfig.tests.json && node .build/scripts/emit.js
+      - name: Verify publication boundaries without sending
+        shell: bash
+        run: |
+          mkdir -p .artifacts
+          node --test --test-concurrency=1 tests/release/publication-cli.test.js tests/release/publication.test.js tests/release/workflow.test.js tests/release/evidence.test.js tests/release/decision.test.js tests/release/collect.test.js tests/ci/verification.test.js 2>&1 | tee .artifacts/ci-publication-boundary.txt
       - run: node node_modules/@playwright/test/cli.js install --with-deps chromium firefox webkit
       - name: Install reviewed candidate inputs
         env:
@@ -39,6 +44,7 @@ jobs:
           name: verification-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             .artifacts/ci-results/
+            .artifacts/ci-publication-boundary.txt
             .artifacts/ci-coverage-fixed24/
             .artifacts/u1-coverage-v1000001/coverage-report.json
             .artifacts/u1-coverage-v1000001/browser-results/

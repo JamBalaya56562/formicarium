@@ -119,3 +119,38 @@ test('stable without RC adoption and RC without exact operation approval stay bl
   const rc = await requestFixture(t);
   assert.equal((await planPublication(rc.root, { ...rc.request, approvals: [{ ...rc.request.approvals[0], sourceCommit: 'd'.repeat(40) }] })).allowed, false);
 });
+test('RC actual publication blocks missing failed or timed-out required regression', async t => {
+  for (const mode of ['missing', 'failed', 'timeout'] as const) {
+    const f = await requestFixture(t), e = structuredClone(f.e);
+    e.evidenceId += `-${mode}`;
+    const id = REGRESSION_CHECKS[0]!;
+    if (mode === 'missing') e.checks = e.checks.filter(c => c.checkId !== id);
+    else {
+      const row = e.checks.find(c => c.checkId === id)!;
+      row.status = 'failed'; row.exitCode = mode === 'failed' ? 1 : null;
+      row.termination = mode === 'failed' ? 'exit' : 'timeout';
+    }
+    const entry = await saveEvidence(f.root, e);
+    const decision = await planPublication(f.root, { ...f.request, index: { version: 1, entries: [entry] }, evidenceIds: [e.evidenceId] });
+    assert.equal(decision.allowed, false);
+    assert.ok(decision.missing.includes(`publication-check:${id}`));
+  }
+});
+test('RC actual publication blocks absent or below-80-percent coverage', async t => {
+  for (const mode of ['absent', 'low'] as const) {
+    const f = await requestFixture(t), e = structuredClone(f.e);
+    e.evidenceId += `-${mode}`;
+    if (mode === 'absent') e.coverage = null;
+    else {
+      const report = JSON.parse(await readFile(join(f.root, 'report.json'), 'utf8'));
+      for (const row of e.coverage!.files) { row.totalLines = 10; row.coveredLines = 7; }
+      for (const row of report.files) row.lines = { total: 10, covered: 7 };
+      const bytes = JSON.stringify(report); await writeFile(join(f.root, 'report.json'), bytes);
+      e.checks[0].artifactDigests = { ...e.checks[0].artifactDigests, 'report.json': sha256(bytes) };
+    }
+    const entry = await saveEvidence(f.root, e);
+    const decision = await planPublication(f.root, { ...f.request, index: { version: 1, entries: [entry] }, evidenceIds: [e.evidenceId] });
+    assert.equal(decision.allowed, false);
+    assert.ok(decision.missing.includes('publication-coverage:fixed-80%-realms'));
+  }
+});
