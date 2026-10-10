@@ -22,6 +22,7 @@ import {
   hash,
   type InputManifest,
   parseTestSummary,
+  provisionPreparedResolver,
   REQUIRED_CHECKS,
   safePath,
   validateChecks,
@@ -336,6 +337,7 @@ export async function runVerification() {
     tarball: resolve(root, manifest.tarball),
     u1Report: resolve(u1, 'coverage-report.json'),
   });
+  await provisionPreparedResolver(root, manifest.files, u3);
   await command('coverage-bundle', [
     bun,
     'build',
@@ -365,7 +367,7 @@ export async function runVerification() {
       'u3-browser',
       [
         node,
-        playwright,
+        resolve(prepared.workspace, 'node_modules/@playwright/test/cli.js'),
         'test',
         '--config',
         'playwright.formicarium.config.ts',

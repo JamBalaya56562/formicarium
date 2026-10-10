@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readFile, realpath } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 export async function createFreshResultsDirectory(output: string) {
@@ -22,6 +22,44 @@ export interface FilePin {
   path: string;
   bytes: number;
   sha256: string;
+}
+
+export async function provisionPreparedResolver(
+  root: string,
+  pins: FilePin[],
+  preparedOut: string,
+) {
+  const prefix = '.artifacts/ci-candidate/inputs/resolver/';
+  const modules = ['manifest.js', 'fixtures.js', 'resolver.js'];
+  const selected = pins.filter((row) =>
+    modules.some((name) => row.path === prefix + name),
+  );
+  if (
+    selected.length !== modules.length ||
+    new Set(selected.map((row) => row.path)).size !== modules.length
+  )
+    throw Error('prepared resolver module inventory missing or duplicate');
+  await verifyPins(root, selected);
+  const destination = resolve(
+    preparedOut,
+    'terrarium/.vendor/formicarium-inputs/resolver',
+  );
+  await mkdir(dirname(destination), { recursive: true });
+  await mkdir(destination); // Never replace a previous prepared resolver.
+  const rebased = selected.map((row) => ({
+    ...row,
+    path: safePath(row.path.slice(prefix.length)),
+  }));
+  for (let index = 0; index < selected.length; index++) {
+    const target = resolve(destination, rebased[index]!.path);
+    await mkdir(dirname(target), { recursive: true });
+    await cp(resolve(root, selected[index]!.path), target, {
+      force: false,
+      errorOnExist: true,
+    });
+  }
+  await verifyPins(destination, rebased);
+  return destination;
 }
 export interface InputManifest {
   schemaVersion: 1;

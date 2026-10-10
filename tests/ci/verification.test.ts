@@ -25,6 +25,7 @@ import {
   hash,
   type InputManifest,
   parseTestSummary,
+  provisionPreparedResolver,
   REQUIRED_CHECKS,
   safePath,
   validateChecks,
@@ -33,6 +34,51 @@ import {
   validateWorkflow,
   verifyPins,
 } from '../../scripts/ci/verification.js';
+
+test('prepared owner resolver preserves pinned modules and refuses reuse or drift', async () => {
+  const root = await mkdtemp(resolve(tmpdir(), 'ci-prepared-resolver-'));
+  const prefix = '.artifacts/ci-candidate/inputs/resolver/';
+  const out = resolve(root, 'fresh-coverage');
+  const bytes = Buffer.from('export const marker = 42;');
+  const pins = ['manifest.js', 'fixtures.js', 'resolver.js'].map((name) => ({
+    path: prefix + name,
+    bytes: bytes.length,
+    sha256: hash(bytes),
+  }));
+  try {
+    for (const pin of pins) {
+      await mkdir(resolve(root, pin.path, '..'), { recursive: true });
+      await writeFile(resolve(root, pin.path), bytes);
+    }
+    const destination = await provisionPreparedResolver(root, pins, out);
+    assert.deepEqual(
+      await readFile(resolve(destination, 'manifest.js')),
+      bytes,
+    );
+    assert.deepEqual(
+      await readFile(resolve(destination, 'fixtures.js')),
+      bytes,
+    );
+    assert.deepEqual(
+      await readFile(resolve(destination, 'resolver.js')),
+      bytes,
+    );
+    await assert.rejects(
+      provisionPreparedResolver(root, pins.slice(1), resolve(root, 'missing')),
+      /module inventory/,
+    );
+    await assert.rejects(provisionPreparedResolver(root, pins, out), {
+      code: 'EEXIST',
+    });
+    await writeFile(resolve(root, pins[0]!.path), Buffer.alloc(bytes.length));
+    await assert.rejects(
+      provisionPreparedResolver(root, pins, resolve(root, 'other')),
+      /input bytes differ/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('supplemental core source binds digest, exact HEAD and fixed public prerequisite', async () => {
   const expected = 'c'.repeat(40);
@@ -167,8 +213,13 @@ const manifest = (): InputManifest => ({
 test('missing terrarium terminal module is rejected before coverage preparation', () => {
   const input = manifest();
   validateManifest(input, context);
-  input.files = input.files.filter((row) => row.path !== `${input.terrarium}/web/terminal.mjs`);
-  assert.throws(() => validateManifest(input, context), /required input missing: terrarium\/web\/terminal\.mjs/);
+  input.files = input.files.filter(
+    (row) => row.path !== `${input.terrarium}/web/terminal.mjs`,
+  );
+  assert.throws(
+    () => validateManifest(input, context),
+    /required input missing: terrarium\/web\/terminal\.mjs/,
+  );
 });
 test('reviewed same-source manifest requires complete core guest fixture supply', () => {
   validateManifest(manifest(), context);
@@ -342,10 +393,10 @@ test('bundle producer binds actual owner bytes before validating the manifest', 
         : path === 'candidate.json'
           ? original.packageManifest
           : path === ownerPin.path
-            ? original.terrarium + '/packages/terrarium/src/session.ts'
+            ? `${original.terrarium}/packages/terrarium/src/session.ts`
             : path === 'terrarium/web/terminal.mjs'
-              ? original.terrarium + '/web/terminal.mjs'
-            : path,
+              ? `${original.terrarium}/web/terminal.mjs`
+              : path,
     );
     const source = resolve(root, 'input');
     await writeFile(source, 'real bytes');
