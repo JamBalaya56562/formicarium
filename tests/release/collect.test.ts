@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { rm } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import test from 'node:test';
 import {
   collectCommand,
@@ -54,6 +54,67 @@ test('deadline kills child and cannot count as success', async (t) => {
   assert.equal(row.status, 'failed');
   assert.equal(row.termination, 'timeout');
 });
+for (const kind of ['timeout', 'aborted'] as const) {
+  test(`observer ${kind} stops descendants with inherited pipes`, async (t) => {
+    const f = await fixture(t);
+    const controller = new AbortController();
+    const pidFile = `${f.root}/grandchild.pid`;
+    t.after(async () => {
+      try {
+        process.kill(Number(await readFile(pidFile, 'utf8')), 'SIGKILL');
+      } catch {}
+    });
+    const script = `
+      const {spawn} = require('node:child_process');
+      const {writeFileSync} = require('node:fs');
+      const child = spawn(process.execPath, ['-e',
+        'process.stdout.write("grandchild");setTimeout(()=>{},2000)'],
+        {stdio:['ignore',process.stdout,process.stderr]});
+      writeFileSync(${JSON.stringify(pidFile)}, String(child.pid));
+      process.stdout.write('parent\\n');
+      process.stderr.write('diagnostic\\n');
+      setInterval(()=>{},1000);
+    `;
+    const abortTimer =
+      kind === 'aborted'
+        ? setTimeout(() => controller.abort(), 500)
+        : undefined;
+    const started = performance.now();
+    const row = await collectCommand(
+      command(f.root, ['-e', script], {
+        candidate: f.c,
+        timeoutMs: kind === 'timeout' ? 500 : 5000,
+        signal: controller.signal,
+      }),
+    );
+    clearTimeout(abortTimer);
+    assert.equal(row.status, 'failed');
+    assert.equal(row.termination, kind);
+    assert.ok(
+      performance.now() - started < 1500,
+      'settles before descendant natural exit',
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const pid = Number(await readFile(pidFile, 'utf8'));
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+    assert.match(
+      await readFile(`${f.root}/${row.stdoutArtifact}`, 'utf8'),
+      /grandchild/,
+    );
+    assert.match(
+      await readFile(`${f.root}/${row.stderrArtifact}`, 'utf8'),
+      /diagnostic/,
+    );
+    await observeArtifact(
+      `${f.root}/${row.stdoutArtifact}`,
+      row.artifactDigests[row.stdoutArtifact!],
+    );
+    await observeArtifact(
+      `${f.root}/${row.stderrArtifact}`,
+      row.artifactDigests[row.stderrArtifact!],
+    );
+  });
+}
 test('aborted command is never started', async (t) => {
   const f = await fixture(t),
     controller = new AbortController();

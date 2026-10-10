@@ -44,6 +44,7 @@ export async function collectCommand(
         cwd: input.cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
+        detached: process.platform !== 'win32',
       });
       child.stdout.on('data', (b: Buffer) => {
         stdout = Buffer.concat([stdout, b]);
@@ -51,28 +52,62 @@ export async function collectCommand(
       child.stderr.on('data', (b: Buffer) => {
         stderr = Buffer.concat([stderr, b]);
       });
+      let settled = false;
+      let drainTimer: NodeJS.Timeout | undefined;
       const stop = (kind: 'timeout' | 'aborted') => {
+        if (settled || termination !== 'exit') return;
         termination = kind;
-        child.kill('SIGKILL');
+        // Pipes can outlive the direct child. Kill its process tree and bound
+        // the drain even if a descendant escaped the process group.
+        if (child.pid) {
+          if (process.platform === 'win32') {
+            const killer = spawn(
+              'taskkill',
+              ['/pid', String(child.pid), '/T', '/F'],
+              {
+                stdio: 'ignore',
+                shell: false,
+              },
+            );
+            killer.once('error', () => child.kill('SIGKILL'));
+          } else {
+            try {
+              process.kill(-child.pid, 'SIGKILL');
+            } catch {
+              child.kill('SIGKILL');
+            }
+          }
+        }
+        drainTimer = setTimeout(() => {
+          child.stdout.destroy();
+          child.stderr.destroy();
+          finish();
+        }, 250);
       };
       const timer = setTimeout(() => stop('timeout'), input.timeoutMs),
         abort = () => stop('aborted');
       input.signal?.addEventListener('abort', abort, { once: true });
       const finish = () => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
+        clearTimeout(drainTimer);
         input.signal?.removeEventListener('abort', abort);
         accept();
       };
       child.once('error', () => {
-        termination = 'init-failure';
+        if (termination === 'exit') termination = 'init-failure';
         finish();
       });
       child.once('close', (code) => {
+        if (settled) return;
         exitCode = code;
         if (termination === 'exit' && code !== 0)
           termination = 'execution-failure';
         finish();
       });
+      // Covers an abort between the initial check and listener registration.
+      if (input.signal?.aborted) abort();
     });
   const stdoutArtifact = `${id}/stdout.txt`,
     stderrArtifact = `${id}/stderr.txt`;
