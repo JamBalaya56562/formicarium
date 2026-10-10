@@ -1,0 +1,161 @@
+{
+  "name": "Approved package publication",
+  "on": {
+    "push": {
+      "tags": [
+        "v0.1.0-rc.1",
+        "v0.1.0"
+      ]
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "publication-${{ github.ref }}",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "verify": {
+      "if": "github.event_name == 'push' && github.repository == 'aletheia-works/formicarium' && (github.ref == 'refs/tags/v0.1.0-rc.1' || github.ref == 'refs/tags/v0.1.0')",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 30,
+      "permissions": {
+        "contents": "read"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "24.21.0"
+          }
+        },
+        {
+          "run": "npm ci --ignore-scripts"
+        },
+        {
+          "run": "node node_modules/typescript/bin/tsc -p tsconfig.json && node node_modules/typescript/bin/tsc -p tsconfig.tests.json && node .build/scripts/emit.js"
+        },
+        {
+          "name": "Fetch reviewed immutable release inputs",
+          "env": {
+            "FORMICARIUM_RELEASE_INPUT_URL": "${{ vars.FORMICARIUM_RELEASE_INPUT_URL }}",
+            "FORMICARIUM_RELEASE_INPUT_SHA256": "${{ vars.FORMICARIUM_RELEASE_INPUT_SHA256 }}"
+          },
+          "run": "node scripts/release/publication-cli.js fetch .artifacts/publication"
+        },
+        {
+          "run": "node scripts/release/publication-cli.js gate .artifacts/publication"
+        },
+        {
+          "run": "node --test --test-concurrency=1 tests/release/publication.test.js tests/release/workflow.test.js tests/release/evidence.test.js tests/release/decision.test.js tests/release/collect.test.js tests/ci/verification.test.js"
+        }
+      ]
+    },
+    "publish": {
+      "if": "github.event_name == 'push' && github.repository == 'aletheia-works/formicarium' && (github.ref == 'refs/tags/v0.1.0-rc.1' || github.ref == 'refs/tags/v0.1.0')",
+      "needs": "verify",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 30,
+      "environment": "release",
+      "permissions": {
+        "contents": "read",
+        "id-token": "write"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "24.21.0"
+          }
+        },
+        {
+          "run": "npm ci --ignore-scripts"
+        },
+        {
+          "run": "node node_modules/typescript/bin/tsc -p tsconfig.json && node node_modules/typescript/bin/tsc -p tsconfig.tests.json && node .build/scripts/emit.js"
+        },
+        {
+          "run": "npm install --global npm@11.19.0 --ignore-scripts"
+        },
+        {
+          "name": "Fetch reviewed immutable release inputs",
+          "env": {
+            "FORMICARIUM_RELEASE_INPUT_URL": "${{ vars.FORMICARIUM_RELEASE_INPUT_URL }}",
+            "FORMICARIUM_RELEASE_INPUT_SHA256": "${{ vars.FORMICARIUM_RELEASE_INPUT_SHA256 }}"
+          },
+          "run": "node scripts/release/publication-cli.js fetch .artifacts/publication"
+        },
+        {
+          "run": "node scripts/release/publication-cli.js gate .artifacts/publication"
+        },
+        {
+          "env": {
+            "AIDLC_RELEASE_OPERATION": "publish"
+          },
+          "run": "node scripts/release/publication-cli.js publish .artifacts/publication"
+        }
+      ]
+    },
+    "release": {
+      "if": "github.event_name == 'push' && github.repository == 'aletheia-works/formicarium' && (github.ref == 'refs/tags/v0.1.0-rc.1' || github.ref == 'refs/tags/v0.1.0')",
+      "needs": "publish",
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 30,
+      "environment": "release",
+      "permissions": {
+        "contents": "write"
+      },
+      "steps": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "with": {
+            "node-version": "24.21.0"
+          }
+        },
+        {
+          "run": "npm ci --ignore-scripts"
+        },
+        {
+          "run": "node node_modules/typescript/bin/tsc -p tsconfig.json && node node_modules/typescript/bin/tsc -p tsconfig.tests.json && node .build/scripts/emit.js"
+        },
+        {
+          "name": "Fetch reviewed immutable release inputs",
+          "env": {
+            "FORMICARIUM_RELEASE_INPUT_URL": "${{ vars.FORMICARIUM_RELEASE_INPUT_URL }}",
+            "FORMICARIUM_RELEASE_INPUT_SHA256": "${{ vars.FORMICARIUM_RELEASE_INPUT_SHA256 }}"
+          },
+          "run": "node scripts/release/publication-cli.js fetch .artifacts/publication"
+        },
+        {
+          "run": "node scripts/release/publication-cli.js gate .artifacts/publication"
+        },
+        {
+          "env": {
+            "AIDLC_RELEASE_OPERATION": "release",
+            "GH_TOKEN": "${{ github.token }}"
+          },
+          "run": "node scripts/release/publication-cli.js release .artifacts/publication"
+        }
+      ]
+    }
+  }
+}

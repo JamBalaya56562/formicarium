@@ -98,6 +98,7 @@ export interface ReleaseApproval {
   operation:
     | 'create-public-repository'
     | 'push-public-source'
+    | 'create-github-release'
     | 'publish-rc'
     | 'publish-stable';
   target: string;
