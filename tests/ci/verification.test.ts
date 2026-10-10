@@ -129,6 +129,7 @@ const ownerPin = {
 };
 const paths = [
   ownerPin.path,
+  'terrarium/web/terminal.mjs',
   'candidate.tgz',
   'candidate.json',
   'assets/blink.wasm',
@@ -161,6 +162,13 @@ const manifest = (): InputManifest => ({
     baselineCommit: 'd'.repeat(40),
     integrationSourceIdentity: hash(JSON.stringify([ownerPin])),
   },
+});
+
+test('missing terrarium terminal module is rejected before coverage preparation', () => {
+  const input = manifest();
+  validateManifest(input, context);
+  input.files = input.files.filter((row) => row.path !== `${input.terrarium}/web/terminal.mjs`);
+  assert.throws(() => validateManifest(input, context), /required input missing: terrarium\/web\/terminal\.mjs/);
 });
 test('reviewed same-source manifest requires complete core guest fixture supply', () => {
   validateManifest(manifest(), context);
@@ -335,6 +343,8 @@ test('bundle producer binds actual owner bytes before validating the manifest', 
           ? original.packageManifest
           : path === ownerPin.path
             ? original.terrarium + '/packages/terrarium/src/session.ts'
+            : path === 'terrarium/web/terminal.mjs'
+              ? original.terrarium + '/web/terminal.mjs'
             : path,
     );
     const source = resolve(root, 'input');

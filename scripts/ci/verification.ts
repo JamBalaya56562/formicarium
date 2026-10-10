@@ -120,6 +120,7 @@ export function validateManifest(
         throw Error('invalid file pin');
   }
   for (const required of [
+    `${input.terrarium}/web/terminal.mjs`,
     input.tarball,
     input.packageManifest,
     'assets/blink.wasm',
