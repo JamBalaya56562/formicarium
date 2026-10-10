@@ -15,6 +15,12 @@ import {
   validatePayloadInventory,
 } from '../../scripts/ci/bundle.js';
 import {
+  bootstrapCoreSource,
+  CORE_BUNDLE_PATH,
+  CORE_PUBLIC_BASE,
+  validateCoreBundle,
+} from '../../scripts/ci/core-source.js';
+import {
   createFreshResultsDirectory,
   hash,
   type InputManifest,
@@ -28,14 +34,84 @@ import {
   verifyPins,
 } from '../../scripts/ci/verification.js';
 
+test('supplemental core source binds digest, exact HEAD and fixed public prerequisite', async () => {
+  const expected = 'c'.repeat(40);
+  const bytes = Buffer.from(
+    `# v2 git bundle\n-${CORE_PUBLIC_BASE} prerequisite\n${expected} HEAD\n\nPACK fixture`,
+  );
+  validateCoreBundle(bytes, hash(bytes), expected);
+  assert.throws(
+    () => validateCoreBundle(bytes, hash(bytes), 'd'.repeat(40)),
+    /HEAD/,
+  );
+  const corrupt = Buffer.from(bytes);
+  corrupt[corrupt.length - 1] = corrupt[corrupt.length - 1]! ^ 1;
+  assert.throws(
+    () => validateCoreBundle(corrupt, hash(bytes), expected),
+    /digest/,
+  );
+  const hostile = Buffer.from(
+    bytes.toString().replace(' HEAD', ' https://host.invalid/ref'),
+  );
+  assert.throws(
+    () => validateCoreBundle(hostile, hash(hostile), expected),
+    /HEAD/,
+  );
+  const root = await mkdtemp(resolve(tmpdir(), 'ci-core-bundle-'));
+  try {
+    await mkdir(resolve(root, '.artifacts/ci-candidate'), { recursive: true });
+    await writeFile(resolve(root, CORE_BUNDLE_PATH), bytes);
+    await writeFile(
+      resolve(root, 'blink.lock'),
+      `url=https://github.com/aletheia-works/blink.git\ncommit=${expected}\nupstream_url=https://github.com/jart/blink.git\nupstream_commit=${'e'.repeat(40)}\n`,
+    );
+    const input = manifest();
+    input.files.push({
+      path: CORE_BUNDLE_PATH,
+      bytes: bytes.length,
+      sha256: hash(bytes),
+    });
+    const calls: string[][] = [];
+    await bootstrapCoreSource(root, input, async (_id, args) => {
+      calls.push(args);
+    });
+    assert.ok(
+      calls.some(
+        (args) =>
+          args.includes('verify') &&
+          args.includes(resolve(root, CORE_BUNDLE_PATH)),
+      ),
+    );
+    assert.ok(
+      calls.some(
+        (args) => args.includes('fetch') && args.includes(CORE_PUBLIC_BASE),
+      ),
+    );
+    assert.ok(calls.some((args) => args.includes('diff')));
+    input.files = input.files.filter((row) => row.path !== CORE_BUNDLE_PATH);
+    const before = calls.length;
+    await bootstrapCoreSource(root, input, async (_id, args) => {
+      calls.push(args);
+    });
+    assert.equal(calls.length, before);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('fresh results creation supports a clean checkout and refuses reuse', async () => {
   const root = await mkdtemp(resolve(tmpdir(), 'ci-fresh-results-'));
   const output = resolve(root, '.artifacts/ci-results');
   try {
     await createFreshResultsDirectory(output);
     await writeFile(resolve(output, 'original.txt'), 'preserved');
-    await assert.rejects(createFreshResultsDirectory(output), { code: 'EEXIST' });
-    assert.equal(await readFile(resolve(output, 'original.txt'), 'utf8'), 'preserved');
+    await assert.rejects(createFreshResultsDirectory(output), {
+      code: 'EEXIST',
+    });
+    assert.equal(
+      await readFile(resolve(output, 'original.txt'), 'utf8'),
+      'preserved',
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

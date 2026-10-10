@@ -15,6 +15,7 @@ import {
   sealCoverage,
 } from '../terrarium/coverage.js';
 import { validatePayloadInventory } from './bundle.js';
+import { bootstrapCoreSource } from './core-source.js';
 import {
   type CheckResult,
   createFreshResultsDirectory,
@@ -232,6 +233,7 @@ export async function runVerification() {
       ),
     ]),
   );
+  await bootstrapCoreSource(root, manifest, command);
   await command('core-source-provenance', ['bash', 'scripts/fetch-blink.sh']);
   results.push(
     await command('node-regression', [
