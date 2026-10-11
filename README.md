@@ -81,12 +81,12 @@ Node.js の Worker と、COOP/COEP 付きのブラウザページ（Chromium・F
 
 | ツール | 用途 | 入手 |
 |---|---|---|
-| Bun 1.4.2 | 開発依存の固定導入、開発task | `mise.toml`（`mise install`） |
-| Node.js 26.11.1 | ランナー、consumer、Worker、テスト、計測 | `mise.toml`（`mise install`）。公開packageの対応範囲はNode >=24 |
+| Bun latest | 開発依存の固定導入、開発task | `mise.toml`（`mise install`） |
+| Node.js latest | ランナー、consumer、Worker、テスト、計測 | `mise.toml`（`mise install`）。公開packageの対応範囲はNode >=24 |
 | Docker Desktop または wslc | blink の wasm ビルド、ゲストのビルド、native の基準値 | wslc（`C:\Program Files\WSL\wslc.exe`）を優先し、動かなければ docker を使う。`FORMICARIUM_CONTAINER` で指定もできる |
 | emsdk | ローカルでの Emscripten（`FORMICARIUM_BUILD=host` のとき） | `~/AppData/Local/emsdk`（Windows）または `~/emsdk`。`git clone https://github.com/emscripten-core/emsdk && ./emsdk install latest && ./emsdk activate latest` |
 | Git、Git Bash | スクリプトの実行（Windows） | — |
-| Playwright のブラウザ | ブラウザのテストと計測 | `mise run install-frozen` → `node node_modules/@playwright/test/cli.js install chromium firefox webkit` |
+| Playwright のブラウザ | ブラウザのテストと計測 | `mise run install-frozen` → `bun node_modules/@playwright/test/cli.js install chromium firefox webkit` |
 
 Windows では、mise のツールは非対話シェルの PATH に載らない。`~/AppData/Local/mise/installs/<tool>/<version>/` の実体を直接呼ぶ。
 
@@ -99,7 +99,7 @@ blink の wasm ビルドは、既定ではコンテナ（`emscripten/emsdk:<ロ�
 
 ### 通常CIと候補検証
 
-`ci.yml`は全PRとmain pushで`quality`（30分）、`commit-format`（10分）、`ci-required`（5分）を実行する。品質taskはfrozen導入→lint→typecheck→build→軽量Node検査の順。通常CIはcontents readだけを使い、checkout credentialを保存しない。OS/Bun/Node/lock digestで依存cacheを分け、cache missでも検査を実行する。通常CI成功は重い回帰や配布coverageの成功を意味しない。
+`ci.yml`は全PRとmain pushで`quality`（30分）、`product-tests`（240分）、`commit-format`（10分）、`ci-required`（5分）を実行する。品質taskはfrozen導入→lint→typecheck→build→軽量Node検査の順。通常CIはcontents readだけを使い、checkout credentialを保存しない。OS/Bun/Node/lock digestで依存cacheを分け、cache missでも検査を実行する。製品回帰はsource build・native・Node・3ブラウザで確認する。cross-repository consumerと配布coverageはcandidate検証で別途確認する。
 
 commit形式は信頼済みbaseの`scripts/ci/commit-format.ts`で検査する。導入前mainにこのvalidatorがない初回は安全側で失敗する。初期導入の手順は管理者がレビューと外部操作の承認後に決め、PR側validatorへのfallbackやcheck除外で回避しない。既存の`verify.yml`と`publish.yml`、公開RCと固定RC入力branchは保持する。
 
@@ -113,11 +113,11 @@ commit形式は信頼済みbaseの`scripts/ci/commit-format.ts`で検査する�
 
 | 論理task | mise入口 | Bun scripts | 実行境界 |
 |---|---|---|---|
-| install-frozen | `mise run install-frozen` | `bun run install:frozen` | Bun固定版、frozen、script無効 |
+| install-frozen | `mise run install-frozen` | `bun run install:frozen` | Bun latest、frozen、script無効 |
 | lint | `mise run check` | `bun run check` | Biome |
 | typecheck | `mise run typecheck` | `bun run typecheck` | TypeScript |
-| build | `mise run build` | `bun run build` | tscとNode emitter |
-| test-light | `mise run test-light` | `bun run test:light` | Node node:test |
+| build | `mise run build` | `bun run build` | tscとBun emitter |
+| test-light | `mise run test-light` | `bun run test:light` | Bun unit/tooling＋Node consumer/publication |
 | test-consumer | `mise run test-consumer` | `bun run test:consumer` | Node consumer、別途資産準備 |
 | verify-candidate | `mise run verify-candidate` | `bun run verify:candidate` | Node/browser/nativeと固定80%coverage |
 
@@ -136,7 +136,7 @@ bun run check:fix    # Biome の安全な自動修正
 
 Windows では POSIX permission bits の検査だけを skip する。同じ検査を Linux で実行することで権限の条件を確認する。外部の実配布資産に関するテストも、資産を未準備のときは未検証として表示する。
 
-`mise run test-consumer` は wasm・guest・検証済みの npm アーカイブ・独立した consumer を使うため、各テストの資産と環境変数を準備してから実行する。Playwright は `.spec.ts` を読み、3 ブラウザ・1 worker・再試行なしを維持する。失敗時には trace と screenshot を保存する。開発依存はtext `bun.lock`をコミットし、frozen導入でlockの変更を拒否する。導入scriptは全て無効化し、`trustedDependencies: []`でBunの既定許可にも頼らない。cacheなし確認は`node scripts/ci/tasks.ts install-frozen --cacheless`で実行する。Node向けconsumer・Worker・固有flagsをBun runtimeへ置換しない。
+`mise run test-consumer` は wasm・guest・検証済みの npm アーカイブ・独立した consumer を使うため、各テストの資産と環境変数を準備してから実行する。Playwright は `.spec.ts` を読み、3 ブラウザ・1 worker・再試行なしを維持する。失敗時には trace と screenshot を保存する。開発依存はtext `bun.lock`をコミットし、frozen導入でlockの変更を拒否する。導入scriptは全て無効化し、`trustedDependencies: []`でBunの既定許可にも頼らない。cacheなし確認は`bun scripts/ci/tasks.ts install-frozen --cacheless`で実行する。Node向けconsumer・Worker・固有flagsをBun runtimeへ置換しない。
 
 ```bash
 mise run install-frozen
@@ -145,7 +145,7 @@ bash scripts/build-blink-wasm.sh   # blink.lock のコミットを取得し、di
 bash scripts/build-guests.sh       # dist/guests/ に probe・hello・exit3・aube（v2.6.1）・pitchfork（v2.29.0）を作る（aube は 1 時間以上かかる）
 bash scripts/native-baseline.sh    # fixtures/baseline/aube-1645.native.txt（native の基準値）を作る
 bash scripts/native-baseline.sh pitchfork-basic --check-reproducible   # pitchfork の基準値（2 回作って一致を確かめる）
-node node_modules/@playwright/test/cli.js install chromium firefox webkit
+bun node_modules/@playwright/test/cli.js install chromium firefox webkit
 ```
 
 `bash scripts/fetch-blink.sh` は `blink.lock` のコミットだけを `.vendor/blink` に取得する。fork と upstream の差分は
@@ -155,14 +155,14 @@ node node_modules/@playwright/test/cli.js install chromium firefox webkit
 - pitchfork だけを作るときは `bash scripts/build-guests.sh pitchfork`（初回は 35 分ほど）。公式リポジトリ（jdx/pitchfork）の
   タグ `v2.30.1` を取得し、コミットを `dist/guests/pitchfork.commit` に記録する（`PITCHFORK_REF` で変えられる）。
   - release ビルドは web UI を埋め込むので、先に `ui/` を `dist/guests/aube` で `aube install --frozen-lockfile && aube run build`
-    する。UI に使う node はメジャー版 24 に固定し（`PITCHFORK_UI_NODE_MAJOR`）、違う版が入ったら止まる
+    する。上流UIのNode実行には公式 `node:current-alpine` の最新系列を使う（`PITCHFORK_UI_NODE_IMAGE`で変更可能）
   - 上流ソースを修正せずにビルドする。ソース変更が残るキャッシュは拒否する
   - UI に使った node の版と UI 成果物の sha256 を `dist/guests/pitchfork.build-info` に記録する
   ビルド後、`dist/guests/` のすべてのゲストが static な x86-64 の ELF であること（`PT_INTERP` がないこと）を確かめる。
 - ゲスト・環境変数・手順の一覧は `runtime/registry.ts` の 1 か所にある。ゲストを足すときは、そこに 1 行足し、
   `build-guests.sh` の対象・fixture・基準値・テストを足す（[`docs/terrarium-integration.md`](docs/terrarium-integration.md) の 3 節）。
 - `bash scripts/native-baseline.sh [<手順>] [--check-reproducible]` は、表の手順（既定は `aube-1645`）の基準値を作る。
-  手順の設定は `node scripts/session-info.js <手順>` で表から読む（node は PATH、`FORMICARIUM_NODE`、mise の順に探す）。
+  手順の設定は `bun scripts/session-info.js <手順>` で表から読む（シェル補助はBunを優先し、必要時はNodeを使う）。
 - wasm メモリの上限は 1 GB（`-sMAXIMUM_MEMORY=1GB`）。WebKit がインスタンスごとに上限までメモリを確保するため、
   4 GB から下げた。1 GB を超えるメモリを使うゲストは動かない。
 - `dist/blink/build-info.json` の `blinkSourceDirty` が `true` のビルド（未公開の修正を含む）では、
@@ -196,7 +196,7 @@ Bun 1.4.2 / bun.lock による依存管理、固定 Node、`ci.yml` の lint・�
 
 `publish.yml` は `v*` tag を入口とし、実行時に `X.Y.Z-rc.N`（N は正整数）または `X.Y.Z` の厳密な版、tag、source SHA、公開先、版ごとの人の承認を照合します。RC は `next`、stable は `latest` を使います。stable は同じ基底版の公開 RC の受け入れ証拠と差分検査も必要です。既存 `v0.1.0-rc.1` と `codex/release/rc1-inputs` は履歴の固定入力として保持します。上の U1 導入時の workflow 保持記述に対し、この U4 で `publish.yml` の将来版対応を追加しています。
 
-readonly verify job は Bun 1.4.2 と `bun.lock` で導入・ビルドし、固定生成済み Node runner の再現を確認します。公開候補は通常 CI と別に `candidate-verify.yml` の `candidate-required`、9 個の必須検査、固定 inventory の全 realm receipt と 80% coverage を要求します。GitHub API の run/attempt/source/workflow/producer、artifact digest、署名済み report bytes を独立照合し、skip・missing・非成功を拒否します。
+readonly verify job は Bun latest と `bun.lock` で導入・ビルドし、固定生成済み Node runner の再現を確認します。公開候補は通常 CI と別に `candidate-verify.yml` の `candidate-required`、9 個の必須検査、固定 inventory の全 realm receipt と 80% coverage を要求します。GitHub API の run/attempt/source/workflow/producer、artifact digest、署名済み report bytes を独立照合し、skip・missing・非成功を拒否します。
 
 publish / release job は同じ tag SHA の checkout にある Node builtin bootstrap と trusted manifest で転送物を検証してから runner を起動します。writer では install / build を行いません。npm 11.19.0 は固定 URL と SHA512 を検証した archive から展開し、Node 26.11.1 で固定 CLI を実行します。npm の OIDC 権限は publish job、contents write は release job だけに与えます。Bun は開発用で、Node consumer と Worker の runtime は変えません。
 
@@ -217,7 +217,7 @@ node runtime/node/run.js --copy-in fixtures/aube-local-deps:/work --cwd /work/ap
   --env AUBE_NO_UPDATE_CHECK=1 dist/guests/aube list
 
 # ブラウザで実行する（COOP/COEP 付きの開発用サーバー）
-node scripts/serve.js --port 8787
+bun scripts/serve.js --port 8787
 #   http://127.0.0.1:8787/runtime/web/index.html?guest=probe
 #   http://127.0.0.1:8787/runtime/web/index.html?session=aube-1645
 #   http://127.0.0.1:8787/runtime/web/index.html?session=pitchfork-basic
@@ -318,3 +318,32 @@ aidlc/                AI-DLC の作業記録（要件、計画、レビュー、
 ## License
 
 Apache License 2.0（blink の fork は ISC。[`docs/licenses.md`](docs/licenses.md) を参照）
+
+### PR product tests
+
+`ci.yml` runs on pull requests and pushes to `main`. In addition to lint,
+TypeScript checks and lightweight tests, `product-tests` builds the locked blink
+wasm core and probe/aube/pitchfork Linux guests from source, checks reproducible
+native transcripts against the committed baselines, then runs Node regressions
+and Chromium, Firefox and WebKit sequentially (one worker, no retries).
+`ci-required` requires the product job to succeed. Compiled products, build metadata and Playwright
+failure diagnostics are retained for seven days. Jobs use read-only permissions
+and do not receive repository secrets.
+
+The temporary digest-pinned input archive supplies only the unavailable locked
+core source bundle to PR tests; its prebuilt products are not reused. Extended
+cross-repository consumer and coverage checks remain in `candidate-verify.yml`.
+That workflow uses the current run’s latest Playwright in the disposable
+terrarium coverage workspace without changing the reviewed input snapshot.
+
+CI selects `ubuntu-latest`, Node `latest` and Bun `latest` on each run. Playwright, Biome and TypeScript
+are refreshed with `bun add --dev --no-save --ignore-scripts @playwright/test@latest @biomejs/biome@latest typescript@latest`,
+so tests use the latest release while preserving the committed dependency lock.
+Bun runs dependency installation, build, lint, type checks, the development server, general unit/tooling tests and browser tooling. Explicit
+Node tests retain Node to verify the published Node consumer and Worker behavior.
+The wasm compiler image is `emscripten/emsdk:latest` in PR product tests.
+
+Product builds are cached by the resolved Docker image IDs and all locked core,
+guest and build-script inputs. CI pulls the current compiler images before
+looking up the cache, so a compiler update causes a fresh build. Native, Node
+and browser tests still run on every PR.

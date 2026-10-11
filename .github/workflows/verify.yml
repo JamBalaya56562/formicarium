@@ -7,6 +7,8 @@ on:
         type: choice
         default: candidate
         options: [candidate, credential]
+env:
+  FORMICARIUM_CI_LATEST_TOOLS: '1'
 permissions:
   contents: read
 concurrency:
@@ -15,7 +17,7 @@ concurrency:
 jobs:
   candidate-required:
     if: github.repository == 'aletheia-works/formicarium' && inputs.verification != 'credential'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -24,15 +26,17 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '26.11.1'
+          node-version: 'latest'
+          check-latest: true
           package-manager-cache: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         id: bun
         with:
-          bun-version: '1.4.2'
-      - run: node scripts/ci/tasks.ts install-frozen --cacheless
-      - run: node scripts/ci/tasks.ts build
-      - run: node node_modules/@playwright/test/cli.js install --with-deps chromium firefox webkit
+          bun-version: 'latest'
+      - run: bun scripts/ci/tasks.ts install-frozen --cacheless
+      - run: bun add --dev --no-save --ignore-scripts @playwright/test@latest @biomejs/biome@latest typescript@latest
+      - run: bun scripts/ci/tasks.ts build
+      - run: bun node_modules/@playwright/test/cli.js install --with-deps chromium firefox webkit
       - name: Install reviewed modernization inputs
         env:
           FORMICARIUM_MODERNIZATION_INPUT_URL: ${{ vars.FORMICARIUM_MODERNIZATION_INPUT_URL }}
@@ -55,21 +59,20 @@ jobs:
           if-no-files-found: error
   credential-read:
     if: github.repository == 'aletheia-works/formicarium' && inputs.verification == 'credential'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
     steps:
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          node-version: '26.11.1'
-          package-manager-cache: false
+          bun-version: 'latest'
       - name: Verify stored credential with GET requests only
         env:
           TOKEN: ${{ secrets.TF_TOKEN_GITHUB }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
-          node --input-type=module <<'NODE'
+          bun run - <<'NODE'
           const token = process.env.TOKEN;
           if (!token) throw new Error('TF_TOKEN_GITHUB is missing');
           const repo = 'aletheia-works/formicarium';
