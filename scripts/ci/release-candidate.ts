@@ -188,7 +188,12 @@ export async function prepareInputs(
   // the guest-distribution resolver; the fresh inputs leave them out.
   const old = JSON.parse(
     await readFile(`${seed}/manifest.json`, 'utf8'),
-  ) as InputManifest & { site: string; terrarium: string; owner: unknown };
+  ) as InputManifest & {
+    site: string;
+    terrarium: string;
+    owner: unknown;
+    coreCommit: string;
+  };
   await validatePayloadInventory(
     `${seed}/payload`,
     old.files.map((row) => row.path),
@@ -206,13 +211,26 @@ export async function prepareInputs(
   const original = JSON.parse(
     await readFile(`${out}/private.manifest.json`, 'utf8'),
   );
-  const { files, sourceFiles, site, terrarium, owner, ...manifest } = old;
+  const {
+    files,
+    sourceFiles,
+    site,
+    terrarium,
+    owner,
+    coreCommit,
+    ...manifest
+  } = old;
   void sourceFiles;
   void owner;
+  void coreCommit;
+  // The core now ships inside the package, so the blink build inputs retire.
   const retired = [
     `${site}/`,
     `${terrarium}/`,
     '.artifacts/ci-candidate/inputs/resolver/',
+    '.artifacts/ci-candidate/core-source.bundle',
+    'assets/',
+    'dist/blink/',
   ];
   manifest.sourceCommit = expected.commit;
   const candidate = {
@@ -230,27 +248,28 @@ export async function prepareInputs(
     `${out}/candidate.json`,
     JSON.stringify(publication, null, 2),
   );
-  const inputs = files
-    .filter((row) => !retired.some((prefix) => row.path.startsWith(prefix)))
+  // The installed package is this run's candidate, whose files differ from
+  // the fixture's older package, so its rows come from the public directory.
+  const packageRows = publication.files.map(({ path }) => ({
+    path: `${manifest.packageRoot}/${path}`,
+    source: resolve(out, 'public', path),
+  }));
+  const fixtureRows = files
+    .filter(
+      (row) =>
+        !retired.some((prefix) => row.path.startsWith(prefix)) &&
+        !row.path.startsWith(`${manifest.packageRoot}/`),
+    )
     .map((row) => {
       let source = resolve(seed, 'payload', row.path);
-      if (row.path.startsWith(`${manifest.packageRoot}/`))
-        source = resolve(
-          out,
-          'public',
-          row.path.slice(manifest.packageRoot.length + 1),
-        );
       if (row.path === manifest.tarball) source = `${out}/candidate.tgz`;
       if (row.path === manifest.packageManifest)
         source = `${out}/package-manifest.json`;
-      if (row.path.startsWith('dist/blink/')) source = resolve(root, row.path);
-      if (row.path.startsWith('assets/'))
-        source = resolve(root, 'dist/blink', row.path.slice(7));
       return { path: row.path, source };
     });
   const sourcePaths = await candidateSourcePaths(root);
   await createBundle(
-    { manifest, sourcePaths, inputs },
+    { manifest, sourcePaths, inputs: [...fixtureRows, ...packageRows] },
     resolve(root, '.ci-inputs'),
     root,
   );
