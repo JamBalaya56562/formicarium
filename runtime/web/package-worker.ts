@@ -9,6 +9,9 @@ export async function readBrowserAsset(url: string | URL) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+/** Time for terminated core Workers to stop; below the host's 500 ms grace. */
+const CORE_STOP_WAIT_MS = 50;
+
 let request: RunRequest | undefined;
 let core: { cleanup(): Promise<void> } | undefined;
 // The core's Workers, started from this Worker. A browser ends the Workers of
@@ -22,8 +25,13 @@ async function stop() {
   } catch {
     // The Workers below are ended either way.
   }
+  const terminated = coreWorkers.size;
   for (const worker of coreWorkers) worker.terminate();
   coreWorkers.clear();
+  // terminate() returns before the browser has stopped the Worker's thread,
+  // which may still run for a few milliseconds; wait before reporting.
+  if (terminated)
+    await new Promise((resolve) => setTimeout(resolve, CORE_STOP_WAIT_MS));
   self.postMessage({ type: 'stopped' });
 }
 
