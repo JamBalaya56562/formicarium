@@ -321,19 +321,30 @@ jobs:
           driver=$!
           trap 'kill "$driver"' EXIT
           node showcase/tests/accept-safari.ts
+      # The job CA is deleted from the keychain; an admin trust entry may stay on
+      # this throwaway runner. remove-trusted-cert waited for an admin prompt
+      # that a runner never answers, so it is not used.
       - name: Remove only this job CA trust and private keys
         if: always()
+        timeout-minutes: 5
         shell: bash
         run: |
           if [[ -f "${SHOWCASE_TLS_CA:-}" ]]; then
-            sudo security remove-trusted-cert -d "$SHOWCASE_TLS_CA" || true
+            hash=$(openssl x509 -in "$SHOWCASE_TLS_CA" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d :)
+            # A variable, not a pipe: grep -q could end the pipe early under pipefail.
+            listed=$(sudo security find-certificate -Z -a /Library/Keychains/System.keychain)
+            if grep -q "SHA-1 hash: $hash" <<< "$listed"; then
+              sudo security delete-certificate -Z "$hash" /Library/Keychains/System.keychain
+            fi
           fi
-          while sudo security find-certificate -c formicarium-showcase-job-ca /Library/Keychains/System.keychain >/dev/null 2>&1; do
-            sudo security delete-certificate -c formicarium-showcase-job-ca /Library/Keychains/System.keychain
-          done
           rm -rf -- showcase/.work/tls
           [[ ! -e showcase/.work/tls ]]
-          ! sudo security find-certificate -c formicarium-showcase-job-ca /Library/Keychains/System.keychain >/dev/null 2>&1
+          if sudo security find-certificate -c formicarium-showcase-job-ca /Library/Keychains/System.keychain >/dev/null 2>&1; then
+            echo 'the job CA is still in the System keychain' >&2
+            exit 1
+          fi
+          # Recorded only: shows whether an admin trust entry was left behind.
+          security dump-trust-settings -d || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: showcase-work-acceptance-safari
