@@ -179,15 +179,38 @@ test('release candidate workflow builds the pinned core itself and exports no wr
       s.run?.includes('release-candidate.ts prepare-inputs'),
     ),
   );
-  // The checking jobs take only this run's candidate and parts.
+  // The checking jobs take only this run's candidate and parts. They are
+  // named per run, not per attempt, so a rerun of only the failed jobs finds
+  // the inputs and parts of the attempts that made them; a later attempt that
+  // makes them again replaces them. Publication still requires every check of
+  // one attempt (publication-evidence.ts).
+  const PER_RUN = /-\$\{\{ inputs\.source-sha \}\}-\$\{\{ github\.run_id \}\}$/;
   for (const job of [check!, verify!])
     for (const step of job.steps.filter((s) =>
       s.uses?.startsWith('actions/download-artifact@'),
     ))
-      assert.match(
-        step.with!.name ?? step.with!.pattern ?? '',
-        /-\$\{\{ inputs\.source-sha \}\}-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}$/,
-      );
+      assert.match(step.with!.name ?? step.with!.pattern ?? '', PER_RUN);
+  const handOffs = [prepare!, check!].flatMap((job) =>
+    job.steps.filter((s) => s.uses?.startsWith('actions/upload-artifact@')),
+  );
+  assert.equal(handOffs.length, 2);
+  for (const step of handOffs) {
+    assert.match(step.with!.name!, PER_RUN);
+    assert.equal(step.with!.overwrite, true);
+  }
+  // The merge reads each part from the per-run download directory.
+  const rename = verify!.steps.find(
+    (s) => s.name === 'Name each part by its job',
+  );
+  assert.match(
+    rename!.run!,
+    /"\.artifacts\/candidate-download\/release-candidate-part-\$part-\$SOURCE_SHA-\$GITHUB_RUN_ID"/,
+  );
+  // It moves every part of the matrix, and only those.
+  assert.deepEqual(
+    /for part in ([\w ]+); do/.exec(rename!.run!)?.[1]?.split(' '),
+    [...CANDIDATE_PARTS],
+  );
   assert.equal(check!.needs, 'prepare');
   assert.deepEqual(check!.strategy.matrix.part, [...CANDIDATE_PARTS]);
   // The parts together record exactly the mandatory checks.
