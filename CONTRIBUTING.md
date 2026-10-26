@@ -61,16 +61,23 @@ in containers:
 mise run build-guests probe       # probe, hello, exit3 and ttyecho (about a minute)
 mise run build-guests aube        # aube (over an hour; rebuild only when its inputs change)
 mise run build-guests pitchfork   # pitchfork, with its web UI built by dist/guests/aube (about 35 minutes cold)
+mise run build-guests nano        # nano with ncurses (about 11 minutes under amd64 emulation on an arm64 Mac)
 mise run native-baseline aube-1645 --check-reproducible
 mise run native-baseline pitchfork-basic --check-reproducible
 ```
 
-CI builds aube v2.7.0 and pitchfork v2.30.1 (`AUBE_REF`, `PITCHFORK_REF`).
-Upstream sources are not patched. The native baselines in
-`fixtures/baseline/` are the expected transcripts; the emulator must produce
-the same output. Guests, their environment and the session scripts are listed
-only in `runtime/registry.ts`. To add a guest, add it there and add its build
-target, fixtures, baseline and tests. `mise run pitchfork-probe-paths` shows,
+CI builds aube v2.7.0 and pitchfork v2.30.1 (`AUBE_REF`, `PITCHFORK_REF`),
+and nano 9.3 with ncurses 6.6 (`NANO_VERSION`, `NCURSES_VERSION`). The nano and
+ncurses tarballs are checked against SHA-256 digests in the build script,
+taken from tarballs whose signatures were checked with the GNU keyring; a
+different version needs its digest too (`NANO_SHA256`, `NCURSES_SHA256`).
+ncurses is built with the xterm-256color definition compiled in, so nano needs
+no terminfo files, only `TERM=xterm-256color`. Upstream sources are not
+patched. The native baselines in `fixtures/baseline/` are the expected
+transcripts; the emulator must produce the same output. Guests, their
+environment and the session scripts are listed only in `runtime/registry.ts`.
+To add a guest, add it there and add its build target, fixtures, baseline and
+tests. `mise run pitchfork-probe-paths` shows,
 natively, which paths each pitchfork command writes.
 
 ## Tests
@@ -78,7 +85,7 @@ natively, which paths each pitchfork command writes.
 ```sh
 # Node.js regressions (the same list as CI's Node suite)
 node --test --test-concurrency=1 tests/node/build.test.js tests/node/runner.test.js tests/node/probe.test.js tests/node/session.test.js tests/node/interactive.test.js tests/node/aube-1645.test.js tests/node/pitchfork-basic.test.js
-# Browser regressions: probe, aube #1645 and pitchfork-basic in Chromium, Firefox and WebKit
+# Browser regressions: probe, the interactive runs of ttyecho and nano, aube #1645 and pitchfork-basic in Chromium, Firefox and WebKit
 bun run test:browser
 bun run test:browser -- --repeat-each=3   # repeatability
 mise run test-consumer                    # the packed package in a separate consumer (prepare its assets first)
