@@ -25,8 +25,15 @@ for example `biome --version`.
 There is no shell: pipes, redirections, `$` expansion and globbing are refused
 with `INVALID_INPUT`. One line is limited to 65536 bytes. Use ↑ and ↓ for the
 history of this page, Ctrl-L to clear the screen while keeping the typed line,
-and Ctrl-C to cancel a running command or install. Tab and
+and Ctrl-C to cancel a running command or install (except an interactive
+tool, below). Tab and
 Shift+Tab move the focus out of the terminal.
+
+A tool marked interactive in the catalog takes the keyboard while it runs:
+every key, Enter and Ctrl-C included, goes to the tool, which sees a terminal
+of the size the page's terminal has when the tool starts (it does not follow
+later resizes). A Stop button below the terminal ends the run
+(`ABORTED`).
 
 ## Limits
 
