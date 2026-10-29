@@ -227,6 +227,93 @@ test('terminal is copied into the request and validated', async (t) => {
     { columns: 65535, rows: 1 },
   );
 });
+test('network is copied into the request and validated', async (t) => {
+  const { session, workers, done } = fixture();
+  t.after(() => session.dispose());
+  const allow = ['github.com:443'];
+  const running = session.run({ guest: elfHeader(), network: { allow } });
+  allow.push('example.com');
+  await turn();
+  assert.deepEqual(workers[0]?.request.network, { allow: ['github.com:443'] });
+  done(workers[0]!);
+  await running;
+  const plain = session.run({ guest: elfHeader() });
+  await turn();
+  assert.equal(workers[1]?.request.network, undefined);
+  done(workers[1]!);
+  await plain;
+  for (const value of [
+    null,
+    [],
+    { allow: 'github.com' },
+    { allow: [443] },
+    { allow: [''] },
+    { allow: ['github.com:65536'] },
+    { allow: ['github.com:443/path'] },
+    { allow: ['https://github.com'] },
+    { allow: ['[::1]:99999'] },
+    // Entries the core refuses: empty labels, port 0, an IPv4 address in brackets.
+    { allow: ['...'] },
+    { allow: ['a..b'] },
+    { allow: ['.github.com'] },
+    { allow: ['*.'] },
+    { allow: ['github.com:0'] },
+    { allow: ['[::1]:0'] },
+    { allow: ['[1.2.3.4]'] },
+    // IPv6 forms the core refuses.
+    { allow: ['dead:beef'] },
+    { allow: ['[dead:beef]'] },
+    { allow: [':'] },
+    { allow: ['1::2::3'] },
+    { allow: ['12345::1'] },
+    { allow: ['1:2:3:4:5:6:7:8:9'] },
+    { allow: ['::1.2.3.999'] },
+    { allow: ['a'.repeat(264)] },
+    { allow: Array(257).fill('github.com') },
+  ])
+    assert.throws(
+      () =>
+        validateRun(
+          {
+            guest: elfHeader(),
+            network: value as unknown as { allow: string[] },
+          },
+          '/root',
+        ),
+      { code: 'INVALID_INPUT' },
+      JSON.stringify(value)?.slice(0, 60),
+    );
+  const accepted = [
+    'github.com',
+    'github.com:443',
+    '*.githubusercontent.com:443',
+    '127.0.0.1:65535',
+    '[::1]:8080',
+    // A bare IPv6 address is one address for every port.
+    '::1',
+    'fe80::1:443',
+    '::',
+    '::ffff:1.2.3.4',
+    '[::ffff:1.2.3.4]:443',
+    '1:2:3:4:5:6:7:8',
+    '1:2:3:4:5:6:7::',
+    '-',
+    'github.com.',
+    'a'.repeat(263),
+  ];
+  assert.deepEqual(
+    validateRun({ guest: elfHeader(), network: { allow: accepted } }, '/root')
+      .network,
+    { allow: accepted },
+  );
+  assert.deepEqual(
+    validateRun(
+      { guest: elfHeader(), network: { allow: Array(256).fill('a') } },
+      '/root',
+    ).network?.allow.length,
+    256,
+  );
+});
 test('stdin must be an unlocked ReadableStream, and a refused run leaves it untouched', () => {
   const locked = source();
   locked.stream.getReader();

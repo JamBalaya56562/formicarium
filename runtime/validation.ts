@@ -261,6 +261,7 @@ export function validateRun(options: RunOptions, home: string) {
     'stdin must be an unlocked ReadableStream',
   );
   const terminal = validateTerminal(options.terminal);
+  const network = validateNetwork(options.network);
   invalid(
     options.timeoutMs === undefined ||
       (Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0),
@@ -291,7 +292,69 @@ export function validateRun(options: RunOptions, home: string) {
     signal,
     stdin,
     terminal,
+    network,
   };
+}
+
+/** At most this many destinations, each at most a DNS name and a port long. */
+const NETWORK_ENTRIES = 256;
+const NETWORK_ENTRY_LENGTH = 263;
+// host or *.host, IPv4 or [IPv6], each with an optional port, or a bare IPv6
+// address, which takes no port.
+const NETWORK_ENTRY =
+  /^(?:(?:\*\.)?([A-Za-z0-9_.-]+)(?::(\d{1,5}))?|\[([0-9A-Fa-f:.]+)\](?::(\d{1,5}))?|[0-9A-Fa-f:.]*:[0-9A-Fa-f:.]*)$/;
+
+const IPV4 =
+  /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/;
+
+/** An IPv6 address in text: eight groups, `::` once for zeros, and an IPv4 address last. */
+function ipv6(text: string) {
+  const halves = text.split('::');
+  if (halves.length > 2) return false;
+  const all = halves.flatMap((half) => (half === '' ? [] : half.split(':')));
+  const last = all.at(-1);
+  const embedded = last?.includes('.') ?? false;
+  if (embedded && !IPV4.test(last!)) return false;
+  const hex = embedded ? all.slice(0, -1) : all;
+  if (!hex.every((group) => /^[0-9A-Fa-f]{1,4}$/.test(group))) return false;
+  const count = hex.length + (embedded ? 2 : 0);
+  return halves.length === 2 ? count <= 7 : count === 8;
+}
+
+/** True when the core takes the entry: no empty name label, a port of 1 to 65535. */
+function networkEntry(entry: unknown) {
+  if (typeof entry !== 'string' || entry.length > NETWORK_ENTRY_LENGTH)
+    return false;
+  const match = NETWORK_ENTRY.exec(entry);
+  if (!match) return false;
+  const [, host, hostPort, address, addressPort] = match;
+  const port = hostPort ?? addressPort;
+  return (
+    // One trailing dot names the root, as in a fully qualified name.
+    (host === undefined ||
+      host
+        .replace(/\.$/, '')
+        .split('.')
+        .every((label) => label !== '')) &&
+    (host !== undefined || ipv6(address ?? entry)) &&
+    (port === undefined || (Number(port) >= 1 && Number(port) <= 65535))
+  );
+}
+
+/** The TCP destinations a run may reach; without them the guest has no network. */
+export function validateNetwork(value: unknown) {
+  if (value === undefined) return undefined;
+  invalid(isRecord(value), 'network must be an object');
+  const { allow } = value;
+  invalid(
+    Array.isArray(allow) && allow.length <= NETWORK_ENTRIES,
+    `network.allow must be an array of at most ${NETWORK_ENTRIES} entries`,
+  );
+  invalid(
+    (allow as unknown[]).every(networkEntry),
+    'network.allow entries must be host, *.host, an IPv4 address or [IPv6], with an optional port of 1 to 65535, or a bare IPv6 address',
+  );
+  return { allow: [...(allow as string[])] };
 }
 
 /** The core accepts 0 to 65535; a zero-sized terminal is refused as unusable. */
